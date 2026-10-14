@@ -66,3 +66,7 @@ REFERENCIAS
 https://github.com/binance/binance-spot-api-docs/blob/master/rest-api.md
 https://docs.espressif.com/projects/esp-idf/en/stable/esp32/api-reference/system/ota.html
 https://docs.github.com/en/repositories/releasing-projects-on-github/managing-releases-in-a-repository
+
+ACTUALIZACION v1.0.2
+OTA v1.0.1 -> v1.0.2 verificado: SHA256 correcto, reinicio, Wi-Fi y tres cotizaciones.
+STATUS confirmo brightness=50% max=80% text=2px. GitHub Actions 38615644462 correcto.
