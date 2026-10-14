@@ -15,7 +15,9 @@ PRIMER USO
 No requiere GO; comienza al encender. El programa no contiene claves Wi-Fi.
 El panel necesita fuente externa de 5 V y GND comun con la ESP32.
 Brillo inicial: 50% (128/255), limitado por codigo a 80% (204/255).
-Todos los textos usan trazos de 2 pixeles, dos renglones desplazables y logo fijo de 20 pixeles. Pinout validado con el programa de colores:
+Cotizaciones con fuente compacta 6x10, trazos de 2 pixeles y avance de 8 pixeles.
+Logo de 16 pixeles y dos renglones viajan juntos. Margen lateral 2 px y vertical 4 px.
+Carrusel a 2 pixeles cada 140 ms: mitad de velocidad que v1.0.3. Pinout validado con el programa de colores:
 R1=25 G1=26 B1=27 R2=14 G2=13 B2=32 A=23 B=19 C=18 D=33
 LAT=21 OE=4 CLK=22; E no usado.
 

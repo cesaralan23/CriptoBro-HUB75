@@ -10,6 +10,7 @@
 #include "root_ca.h"
 #include "version.h"
 #include "cloud_ota.h"
+#include "compact_font.h"
 
 MatrixPanel_I2S_DMA *panel;
 WiFiManager portal;
@@ -152,16 +153,26 @@ void marquee(int y,const char *s,uint16_t color) {
   int x=width<=64?0:64-int((millis()/70) % ((width+80)/2))*2;
   text(x,y,s,color);
 }
-void logo(int coin) {
+void compactText(int x,int y,const char *s,uint16_t color) {
+  for(;*s;s++,x+=8) {
+    for(const auto &glyph:compactFont) {
+      if(glyph.c!=*s) continue;
+      for(int row=0;row<5;row++) for(int col=0;col<3;col++)
+        if(glyph.rows[row] & (4>>col)) panel->fillRect(x+col*2,y+row*2,2,2,color);
+      break;
+    }
+  }
+}
+void logo(int coin,int x) {
   if(coin==0) {
-    panel->fillCircle(10,16,10,orange);
-    text(6,10,"B",white);
-    panel->fillRect(8,8,2,2,white);panel->fillRect(8,24,2,2,white);
+    panel->fillCircle(x+8,16,8,orange);
+    compactText(x+6,12,"B",white);
+    panel->fillRect(x+8,10,2,2,white);panel->fillRect(x+8,22,2,2,white);
   } else if(coin==1) {
     for(int row=0;row<3;row++)
-      panel->fillRect(row==1?0:4,8+row*6,16,4,row==0?cyan:row==1?purple:green);
+      panel->fillRect(x+(row==1?0:2),10+row*4,14,2,row==0?cyan:row==1?purple:green);
   } else {
-    panel->fillRoundRect(0,6,20,20,4,orange);text(6,10,"S",white);
+    panel->fillRoundRect(x,8,16,16,4,orange);compactText(x+6,12,"S",white);
   }
 }
 void newQuote() {
@@ -192,12 +203,13 @@ void drawFrame() {
     else if(!shown.valid) state="CARGANDO";
     if(state) snprintf(bottom,sizeof(bottom),"%s",state);
     else snprintf(bottom,sizeof(bottom),"%+.2f%% %s%s",shown.change,active<2?"24H":"DIA",active==2&&shown.closed?" CER":"");
-    text(scrollX,0,top,white);
-    text(scrollX,18,bottom,state?orange:shown.change>0?green:shown.change<0?red:grey);
-    // Fixed 20px logo and 2px separation, masking both scrolling lines.
-    panel->fillRect(0,0,22,32,0);logo(active);
+    compactText(scrollX+20,4,top,white);
+    compactText(scrollX+20,18,bottom,state?orange:shown.change>0?green:shown.change<0?red:grey);
+    // Logo and both lines travel together; keep a 2px side margin.
+    logo(active,scrollX);
+    panel->fillRect(0,0,2,32,0);panel->fillRect(62,0,2,32,0);
     scrollX-=2;
-    if(scrollX < 22-int(max(strlen(top),strlen(bottom))*12)-8) {active=(active+1)%3;newQuote();}
+    if(scrollX < 2-20-int(max(strlen(top),strlen(bottom))*8)-8) {active=(active+1)%3;newQuote();}
   }
   panel->flipDMABuffer();
 }
@@ -239,6 +251,6 @@ void loop() {
       serialCommand="";
     } else if(serialCommand.length()<64) serialCommand+=c;
   }
-  if(now-frameAt>=70) {frameAt=now;drawFrame();}
+  if(now-frameAt>=140) {frameAt=now;drawFrame();}
   delay(2);
 }
