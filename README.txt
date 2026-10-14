@@ -56,8 +56,10 @@ ESTADO
 v1.0.0: compilacion local y GitHub Actions correctas; cuatro pruebas pasaron.
 Release publica descargada sin autenticar y SHA256 verificado desde PC.
 Instalacion USB inicial completada en CH340 COM8, todos los hashes correctos.
-La aplicacion responde por serial. Pendiente configurar Wi-Fi y verificar
-cotizaciones y una actualizacion OTA completa desde la placa.
+Wi-Fi y cotizaciones BTC, SOL y MSTR verificadas desde la ESP32.
+OTA v1.0.0 -> v1.0.1 comprobado: deteccion automatica, descarga HTTPS,
+SHA256 correcto, activacion, reinicio y recuperacion de las tres cotizaciones.
+STATUS confirmo version=1.0.1 y conexion Wi-Fi tras actualizar sin grabar por USB.
 
 REFERENCIAS
 https://github.com/binance/binance-spot-api-docs/blob/master/rest-api.md
