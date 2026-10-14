@@ -14,7 +14,8 @@ PRIMER USO
 4. El cartel guarda la red, sincroniza la hora y consulta datos por HTTPS.
 No requiere GO; comienza al encender. El programa no contiene claves Wi-Fi.
 El panel necesita fuente externa de 5 V y GND comun con la ESP32.
-Brillo inicial: 20/255. Pinout validado con el programa de colores:
+Brillo inicial: 50% (128/255), limitado por codigo a 80% (204/255).
+Todos los textos usan trazos de 2 pixeles, dos renglones desplazables y logo fijo de 20 pixeles. Pinout validado con el programa de colores:
 R1=25 G1=26 B1=27 R2=14 G2=13 B2=32 A=23 B=19 C=18 D=33
 LAT=21 OE=4 CLK=22; E no usado.
 
@@ -25,7 +26,7 @@ ACTUALIZAR DESDE CUALQUIER LUGAR
 3. Abrir Actions > Publicar firmware del cartel > Run workflow.
 4. Esperar a que compile y publique la release. Un commit por si solo NO publica.
 5. El cartel consulta releases/latest/download/manifest.json cada cinco minutos.
-   Descarga firmware.bin, muestra ACTUALIZA y reinicia al terminar.
+   Descarga firmware.bin, muestra OTA y reinicia al terminar.
 No hace falta abrir puertos del router ni guardar tokens GitHub en la placa.
 El repositorio y los archivos de la release deben permanecer publicos.
 

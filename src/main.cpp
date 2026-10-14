@@ -136,21 +136,32 @@ void pricesTask(void*) {
     vTaskDelay(pdMS_TO_TICKS(100));
   }
 }
-void text(int x,int y,const char *s,uint16_t color,int size=1) {
-  panel->setTextSize(size); panel->setTextColor(color); panel->setCursor(x,y); panel->print(s);
+constexpr uint8_t MAX_BRIGHTNESS_PERCENT=80;
+uint8_t brightnessPercent=50;
+void setBrightnessPercent(uint8_t requested) {
+  brightnessPercent=min(requested,MAX_BRIGHTNESS_PERCENT);
+  panel->setBrightness8((brightnessPercent*255U+50U)/100U);
+}
+// All text uses 2x2 physical pixels. Even scrolling coordinates preserve
+// complete two-pixel strokes at the edges of the viewport.
+void text(int x,int y,const char *s,uint16_t color) {
+  panel->setTextSize(2); panel->setTextColor(color); panel->setCursor(x,y); panel->print(s);
+}
+void marquee(int y,const char *s,uint16_t color) {
+  int width=strlen(s)*12;
+  int x=width<=64?0:64-int((millis()/70) % ((width+80)/2))*2;
+  text(x,y,s,color);
 }
 void logo(int coin) {
   if(coin==0) {
-    panel->fillCircle(5,5,5,orange); text(3,2,"B",white);
-    panel->drawPixel(5,0,white); panel->drawPixel(5,10,white);
+    panel->fillCircle(10,16,10,orange);
+    text(6,10,"B",white);
+    panel->fillRect(8,8,2,2,white);panel->fillRect(8,24,2,2,white);
   } else if(coin==1) {
-    for(int row=0;row<3;row++) {
-      int x=row==1?0:2;
-      panel->fillRect(x,1+row*4,9,2,row==0?cyan:row==1?purple:green);
-    }
+    for(int row=0;row<3;row++)
+      panel->fillRect(row==1?0:4,8+row*6,16,4,row==0?cyan:row==1?purple:green);
   } else {
-    // Compact Strategy monogram, deliberately simplified for an 11-pixel icon.
-    panel->fillRoundRect(0,0,11,11,2,orange); text(3,2,"S",white);
+    panel->fillRoundRect(0,6,20,20,4,orange);text(6,10,"S",white);
   }
 }
 void newQuote() {
@@ -163,34 +174,30 @@ void drawFrame() {
   panel->fillScreen(0);
   int otaProgress=cloudUpdateProgress();
   if(otaProgress>=0) {
-    text(2,2,"ACTUALIZA",cyan);
+    text(0,0,"OTA",cyan);
     char progressText[12];snprintf(progressText,sizeof(progressText),"%d%%",otaProgress);
-    text(12,13,progressText,white);
-    panel->drawRect(2,25,60,6,grey);panel->fillRect(3,26,58*otaProgress/100,4,green);
+    text(0,18,progressText,white);
   } else if(portal.getConfigPortalActive()) {
-    uint32_t page=(millis()/5000)%3;
-    text(2,1,"WIFI SETUP",cyan);
-    if(page==0) {text(2,13,"CriptoBro",white);text(2,24,"64",orange);}
-    else if(page==1) {text(2,13,"CLAVE",grey);text(2,24,apPassword,white);}
-    else {text(2,13,"192.168.",white);text(2,24,"4.1",white);}
+    uint32_t page=(millis()/16000)%3;
+    text(0,0,page==1?"CLAVE":"WIFI",cyan);
+    marquee(18,page==0?"CriptoBro64":page==1?apPassword:"192.168.4.1",white);
   } else {
-    logo(active); text(14,2,names[active],white);
-    text(active==2?46:40,2,active==2?"USD":"USDT",grey);
-    text(scrollX,11,priceText,white,2);
+    char top[64],bottom[64];
+    snprintf(top,sizeof(top),"%s %s %s",names[active],priceText,active==2?"USD":"USDT");
     bool stale=shown.valid&&(millis()-shown.received>(active==2?180000:60000));
     const char *state=nullptr;
     if(WiFi.status()!=WL_CONNECTED) state="SIN WIFI";
     else if(time(nullptr)<1700000000) state="RELOJ...";
     else if(stale || shown.failed) state="DATO VIEJO";
     else if(!shown.valid) state="CARGANDO";
-    if(state) text(0,25,state,orange);
-    else {
-      char change[16]; snprintf(change,sizeof(change),"%+.2f%%",shown.change);
-      if(strlen(change)>7) snprintf(change,sizeof(change),"%+.1f%%",shown.change);
-      text(0,25,change,shown.change>0?green:shown.change<0?red:grey);
-      text(46,25,active<2?"24H":shown.closed?"CER":"DIA",active==2&&shown.closed?orange:grey);
-    }
-    if(--scrollX < -int(strlen(priceText)*12)-8) { active=(active+1)%3;newQuote(); }
+    if(state) snprintf(bottom,sizeof(bottom),"%s",state);
+    else snprintf(bottom,sizeof(bottom),"%+.2f%% %s%s",shown.change,active<2?"24H":"DIA",active==2&&shown.closed?" CER":"");
+    text(scrollX,0,top,white);
+    text(scrollX,18,bottom,state?orange:shown.change>0?green:shown.change<0?red:grey);
+    // Fixed 20px logo and 2px separation, masking both scrolling lines.
+    panel->fillRect(0,0,22,32,0);logo(active);
+    scrollX-=2;
+    if(scrollX < 22-int(max(strlen(top),strlen(bottom))*12)-8) {active=(active+1)%3;newQuote();}
   }
   panel->flipDMABuffer();
 }
@@ -201,11 +208,11 @@ void setup() {
   config.double_buff=true;
   panel=new MatrixPanel_I2S_DMA(config);
   if(!panel->begin()) {Serial.println("[ERROR] DMA");while(true) delay(1000);}
-  panel->setBrightness8(20); panel->setTextWrap(false);
+  setBrightnessPercent(50); panel->setTextWrap(false);
   white=panel->color565(220,235,255); green=panel->color565(0,255,70);
   red=panel->color565(255,25,30); orange=panel->color565(255,125,0);
   cyan=panel->color565(0,220,255); purple=panel->color565(170,50,255); grey=panel->color565(90,105,120);
-  text(5,5,"CRIPTOBRO",orange);text(14,19,"64x32",white);panel->flipDMABuffer();
+  text(0,0,"BOOT",orange);text(0,18,"64X32",white);panel->flipDMABuffer();
   snprintf(apPassword,sizeof(apPassword),"CB%06X",unsigned(ESP.getEfuseMac()&0xFFFFFF));
   WiFi.mode(WIFI_STA); WiFi.setHostname("criptobro64"); WiFi.setAutoReconnect(true);
   portal.setDebugOutput(false); portal.setConfigPortalBlocking(false); portal.setConnectTimeout(12);
@@ -229,10 +236,10 @@ void loop() {
     if(c=='\n') {
       serialCommand.trim();
       if(serialCommand=="WIFI"&&!portal.getConfigPortalActive()) portal.startConfigPortal("CriptoBro64",apPassword);
-      if(serialCommand=="STATUS") Serial.printf("[STATUS] version=" FIRMWARE_VERSION " wifi=%d ip=%s heap=%u\n",WiFi.status(),WiFi.localIP().toString().c_str(),ESP.getFreeHeap());
+      if(serialCommand=="STATUS") Serial.printf("[STATUS] version=" FIRMWARE_VERSION " wifi=%d ip=%s heap=%u brightness=%u%% max=%u%% text=2px\n",WiFi.status(),WiFi.localIP().toString().c_str(),ESP.getFreeHeap(),brightnessPercent,MAX_BRIGHTNESS_PERCENT);
       serialCommand="";
     } else if(serialCommand.length()<64) serialCommand+=c;
   }
-  if(now-frameAt>=35) {frameAt=now;drawFrame();}
+  if(now-frameAt>=70) {frameAt=now;drawFrame();}
   delay(2);
 }
