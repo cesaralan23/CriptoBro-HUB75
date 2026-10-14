@@ -53,8 +53,11 @@ tools/release_manifest.py: genera el manifest desde el binario compilado.
 Serial 115200 con DTR/RTS desactivados: WIFI abre portal; STATUS informa IP.
 
 ESTADO
-Compilacion local verificada y endpoints de precios comprobados desde PC.
-La instalacion inicial, Wi-Fi y OTA completo requieren verificacion en la placa.
+v1.0.0: compilacion local y GitHub Actions correctas; cuatro pruebas pasaron.
+Release publica descargada sin autenticar y SHA256 verificado desde PC.
+Instalacion USB inicial completada en CH340 COM8, todos los hashes correctos.
+La aplicacion responde por serial. Pendiente configurar Wi-Fi y verificar
+cotizaciones y una actualizacion OTA completa desde la placa.
 
 REFERENCIAS
 https://github.com/binance/binance-spot-api-docs/blob/master/rest-api.md
