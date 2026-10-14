@@ -229,7 +229,7 @@ void loop() {
     if(c=='\n') {
       serialCommand.trim();
       if(serialCommand=="WIFI"&&!portal.getConfigPortalActive()) portal.startConfigPortal("CriptoBro64",apPassword);
-      if(serialCommand=="STATUS") Serial.printf("[STATUS] wifi=%d ip=%s heap=%u\n",WiFi.status(),WiFi.localIP().toString().c_str(),ESP.getFreeHeap());
+      if(serialCommand=="STATUS") Serial.printf("[STATUS] version=" FIRMWARE_VERSION " wifi=%d ip=%s heap=%u\n",WiFi.status(),WiFi.localIP().toString().c_str(),ESP.getFreeHeap());
       serialCommand="";
     } else if(serialCommand.length()<64) serialCommand+=c;
   }
