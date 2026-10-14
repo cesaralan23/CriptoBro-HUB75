@@ -1,0 +1,10 @@
+.pio/
+firmware/
+*.log
+*.zip
+__pycache__/
+.env
+*secrets*
+*credentials*
+Cargar.ps1
+LEEME.txt
