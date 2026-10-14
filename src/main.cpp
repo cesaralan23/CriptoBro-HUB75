@@ -22,7 +22,7 @@ struct Quote {
 Quote quotes[3];
 portMUX_TYPE quoteLock=portMUX_INITIALIZER_UNLOCKED;
 const char *names[]={"BTC","SOL","MSTR"};
-char apPassword[13];
+const char apPassword[]="HUB75B32";
 uint32_t frameAt=0, lostAt=0;
 int active=0, scrollX=64;
 Quote shown;
@@ -213,7 +213,6 @@ void setup() {
   red=panel->color565(255,25,30); orange=panel->color565(255,125,0);
   cyan=panel->color565(0,220,255); purple=panel->color565(170,50,255); grey=panel->color565(90,105,120);
   text(0,0,"BOOT",orange);text(0,18,"64X32",white);panel->flipDMABuffer();
-  snprintf(apPassword,sizeof(apPassword),"CB%06X",unsigned(ESP.getEfuseMac()&0xFFFFFF));
   WiFi.mode(WIFI_STA); WiFi.setHostname("criptobro64"); WiFi.setAutoReconnect(true);
   portal.setDebugOutput(false); portal.setConfigPortalBlocking(false); portal.setConnectTimeout(12);
   portal.setTitle("CriptoBro 64 - WiFi");

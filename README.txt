@@ -9,7 +9,7 @@ La vista previa GIF usa valores ilustrativos; no es una captura del hardware.
 
 PRIMER USO
 1. Instalar una vez por USB el firmware y la tabla min_spiffs de 4 MB.
-2. Conectar el celular a CriptoBro64. El panel muestra la clave y 192.168.4.1.
+2. Conectar el celular a CriptoBro64, clave HUB75B32. Abrir 192.168.4.1.
 3. Abrir http://192.168.4.1 y configurar la red Wi-Fi de 2,4 GHz.
 4. El cartel guarda la red, sincroniza la hora y consulta datos por HTTPS.
 No requiere GO; comienza al encender. El programa no contiene claves Wi-Fi.
@@ -70,3 +70,8 @@ https://docs.github.com/en/repositories/releasing-projects-on-github/managing-re
 ACTUALIZACION v1.0.2
 OTA v1.0.1 -> v1.0.2 verificado: SHA256 correcto, reinicio, Wi-Fi y tres cotizaciones.
 STATUS confirmo brightness=50% max=80% text=2px. GitHub Actions 38615644462 correcto.
+
+WIFI GUARDADO
+La red configurada se conserva al apagar y durante las actualizaciones OTA.
+Si al encender no conecta, abre WiFiManager; si pierde conexion en uso, lo abre tras 30 segundos.
+Configurar otra red sustituye la anterior. Clave del portal: HUB75B32.
