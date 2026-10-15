@@ -1,0 +1,20 @@
+API LOCAL v1 - firmware 1.1.0
+HTTP puerto 8080. WiFiManager mantiene puerto 80 sin conflicto.
+mDNS: _criptobro._tcp; TXT id=MAC completa y api=1.
+
+GET /api/info: id, name, version, api, width, height, paired (sin token).
+POST /api/pair/start {}: muestra codigo aleatorio durante 60 s; cooldown 60 s.
+POST /api/pair {"code":"123456"}: hasta 5 intentos. Devuelve token e id.
+Nueva vinculacion invalida el token anterior. Codigo no se publica por API ni serial.
+
+Authorization: Bearer <token> para todas las siguientes rutas:
+GET /api/state: settings, quotes, id, version. Incluye indicadores valid/stale/closed.
+POST /api/identify {}: muestra ultimos 6 caracteres del ID durante 5 s.
+POST /api/config {"settings":{...objeto completo...},"save":false}: aplica en RAM.
+POST /api/config {"settings":{...objeto completo...},"save":true}: persiste en NVS.
+Validacion atomica: JSON incorrecto o fuera de rango no modifica los ajustes.
+Campos y rangos: include/display_settings.h. Limite de brillo 80% en ambos niveles.
+Rotacion y texto usan ajustes actuales sin detener la consulta independiente de precios.
+
+LAN de confianza; HTTP sin cifrar, no exponer a Internet. No se habilita CORS.
+La MAC identifica pero no autentica. Token aleatorio, no secreto incluido en firmware.

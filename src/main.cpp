@@ -11,6 +11,7 @@
 #include "version.h"
 #include "cloud_ota.h"
 #include "compact_font.h"
+#include "display_settings.h"
 
 MatrixPanel_I2S_DMA *panel;
 WiFiManager portal;
@@ -181,6 +182,9 @@ void newQuote() {
   else strcpy(priceText,"--.--");
   scrollX=64;
 }
+#include "local_control.h"
+uint16_t configuredColor(const String &hex){uint32_t c=strtoul(hex.c_str(),nullptr,16);return panel->color565(c>>16,(c>>8)&255,c&255);}
+void quoteText(int x,int y,const char *s,uint16_t color){if(settings.font=="compact")compactText(x,y,s,color);else text(x,y,s,color);}
 void drawFrame() {
   panel->fillScreen(0);
   int otaProgress=cloudUpdateProgress();
@@ -188,6 +192,10 @@ void drawFrame() {
     text(0,0,"OTA",cyan);
     char progressText[12];snprintf(progressText,sizeof(progressText),"%d%%",otaProgress);
     text(0,18,progressText,white);
+  } else if(pendingUntil(pairUntil)) {
+    compactText(8,4,"CODIGO",cyan);compactText(8,18,pairCode.c_str(),white);
+  } else if(pendingUntil(identifyUntil)) {
+    compactText(8,4,"PANEL",cyan);compactText(8,18,deviceId.substring(6).c_str(),white);
   } else if(portal.getConfigPortalActive()) {
     uint32_t page=(millis()/16000)%3;
     text(0,0,page==1?"CLAVE":"WIFI",cyan);
@@ -203,13 +211,16 @@ void drawFrame() {
     else if(!shown.valid) state="CARGANDO";
     if(state) snprintf(bottom,sizeof(bottom),"%s",state);
     else snprintf(bottom,sizeof(bottom),"%+.2f%% %s%s",shown.change,active<2?"24H":"DIA",active==2&&shown.closed?" CER":"");
-    compactText(scrollX+20,4,top,white);
-    compactText(scrollX+20,18,bottom,state?orange:shown.change>0?green:shown.change<0?red:grey);
+    if(settings.mode=="text"){snprintf(top,sizeof(top),"%s",settings.message.c_str());bottom[0]=0;}
+    int offset=settings.showLogo?settings.textX:0;
+    quoteText(scrollX+offset,settings.top,settings.mode=="text"?settings.message.c_str():top,configuredColor(settings.priceColor));
+    quoteText(scrollX+offset,settings.bottom,bottom,state?orange:shown.change>0?configuredColor(settings.positiveColor):shown.change<0?configuredColor(settings.negativeColor):grey);
     // Logo and both lines travel together; keep a 2px side margin.
-    logo(active,scrollX);
-    panel->fillRect(0,0,2,32,0);panel->fillRect(62,0,2,32,0);
+    if(settings.showLogo)logo(active,scrollX);
+    panel->fillRect(0,0,settings.inset,32,0);panel->fillRect(64-settings.inset,0,settings.inset,32,0);
     scrollX-=2;
-    if(scrollX < 2-20-int(max(strlen(top),strlen(bottom))*8)-8) {active=(active+1)%3;newQuote();}
+    size_t length=settings.mode=="text"?settings.message.length():max(strlen(top),strlen(bottom));
+    if(scrollX < settings.inset-offset-int(length*(settings.font=="compact"?8:12))-8) {carouselIndex=(carouselIndex+1)%settings.count;active=settings.coins[carouselIndex];newQuote();}
   }
   panel->flipDMABuffer();
 }
@@ -230,6 +241,7 @@ void setup() {
   portal.setTitle("CriptoBro 64 - WiFi");
   portal.setAPCallback([](WiFiManager*) {Serial.printf("[WIFI] Red=CriptoBro64 clave=%s URL=http://192.168.4.1\n",apPassword);});
   portal.autoConnect("CriptoBro64",apPassword);
+  setupControl();
   configTime(0,0,"pool.ntp.org","time.google.com");
   if(xTaskCreate(pricesTask,"prices",16384,nullptr,1,nullptr)!=pdPASS) Serial.println("[ERROR] Tarea precios");
   Serial.println("[CriptoBro64] Version " FIRMWARE_VERSION ". OTA HTTPS cada 5 minutos. WIFI configura; STATUS informa conexion.");
@@ -237,6 +249,7 @@ void setup() {
 }
 void loop() {
   portal.process();
+  processControl();
   uint32_t now=millis();
   if(WiFi.status()!=WL_CONNECTED) {
     if(!lostAt) lostAt=now;
@@ -251,6 +264,6 @@ void loop() {
       serialCommand="";
     } else if(serialCommand.length()<64) serialCommand+=c;
   }
-  if(now-frameAt>=140) {frameAt=now;drawFrame();}
+  if(now-frameAt>=uint32_t(settings.interval)) {frameAt=now;drawFrame();}
   delay(2);
 }
