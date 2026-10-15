@@ -1,0 +1,53 @@
+CRIPTOBRO LOCAL - ANDROID
+
+Expo SDK 57, React Native, TypeScript. No cuenta ni servidor de control remoto.
+
+PROBAR CON EXPO GO
+1. npm ci
+2. npm start
+3. Abrir Expo Go compatible con SDK 57 y escanear el QR de Metro.
+4. Celular y computadora en el mismo Wi-Fi. Cartel con firmware >= 1.1.0.
+5. Ingresar la IP del cartel. El puerto predeterminado es 8080.
+6. Mostrar codigo, copiar los seis digitos de la pantalla y vincular.
+7. Editar: los cambios se aplican tras 250 ms sin nuevas ediciones.
+8. Guardar en el cartel para conservar el diseño al apagar.
+
+La demo funciona sin cartel. Sus precios son ilustrativos.
+La vista previa representa el diseño y usa las fuentes del firmware; no es
+una captura sincronizada del panel. El brillo real depende del hardware.
+Expo Go no incluye el modulo nativo de descubrimiento: usar conexion por IP.
+
+APP DE DESARROLLO CON BUSQUEDA AUTOMATICA
+Configuracion eas.json preparada. Requiere iniciar sesion en Expo:
+npx eas-cli@latest build --platform android --profile development
+Instalar el APK y ejecutar: npx expo start --dev-client --lan
+Busca el servicio mDNS _criptobro._tcp.local en la misma red.
+La biblioteca nativa se carga solo fuera de Expo Go/web.
+Si el router aisla clientes o bloquea multicast, usar la IP.
+La compilacion preview genera un APK independiente de Metro.
+
+ALCANCE DE ESTA PRIMERA VERSION
+- Varias pantallas recordadas e identificadas por MAC de fabrica completa.
+- Una vinculacion activa por cartel. Vincular otro celular reemplaza la anterior.
+- Cotizaciones BTC, SOL y MSTR seleccionables y reordenables; texto libre.
+- Fuentes compacta 6x10 y clasica 10x14, ambas con trazos de 2 pixeles.
+- Posicion de renglones, margen, separacion del logo, colores, velocidad y brillo.
+- Logos incorporados; importar imagenes y arrastrar objetos quedan para otra etapa.
+- Texto libre: letras A-Z, numeros, espacio, punto, +, - y %. Hasta 80 caracteres.
+- No hay acceso remoto; cotizaciones y OTA siguen usando Internet desde la ESP32.
+
+SEGURIDAD LOCAL
+Token aleatorio de 128 bits guardado con SecureStore en Android.
+Codigo temporal de 60 segundos y cinco intentos; nunca usa la MAC como clave.
+HTTP en red local de confianza: no cifra el trafico LAN. No abrir puertos al Internet.
+La app admite solo IPv4 privadas y comprueba la identidad antes de reconectar.
+La vista web es para revisar/demo; no persiste vinculaciones ni ofrece control CORS.
+
+VALIDACION
+npm run typecheck
+npm run lint
+npm test
+npx expo export --platform android
+
+Fuentes: compact_font.h del proyecto y glcdfont.c de Adafruit GFX (fuente original
+de dominio publico). fonts.json contiene los mapas de pixeles para la vista previa.

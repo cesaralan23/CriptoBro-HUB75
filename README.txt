@@ -77,3 +77,10 @@ WIFI GUARDADO
 La red configurada se conserva al apagar y durante las actualizaciones OTA.
 Si al encender no conecta, abre WiFiManager; si pierde conexion en uso, lo abre tras 30 segundos.
 Configurar otra red sustituye la anterior. Clave del portal: HUB75B32.
+
+APP ANDROID LOCAL (firmware 1.1.0)
+Proyecto Expo en mobile/. Instrucciones: mobile/LEEME-app.txt.
+Control por HTTP local en puerto 8080, vinculacion fisica por codigo y guardado de ajustes.
+Expo Go: conexion por IP. Development build: descubrimiento mDNS preparado.
+Verificado en placa: GET /api/info version 1.1.0, estado sin token rechazado, anuncio mDNS correcto.
+La vinculacion y los cambios desde el Android requieren la prueba del usuario con el codigo fisico.
