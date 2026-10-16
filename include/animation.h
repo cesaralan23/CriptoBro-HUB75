@@ -1,6 +1,7 @@
 #pragma once
 #include <SPIFFS.h>
 #include <mbedtls/base64.h>
+#include <errno.h>
 // Two slots preserve the active clip until a complete new file is validated.
 size_t ANIMATION_LIMIT=40960;
 bool animationStorage=false,animationPlaying=false,animationEnabled=false,animationOnly=false;
@@ -137,7 +138,11 @@ void setupAnimation(){
       animationUploadAt=millis();d.clear();d["received"]=animationReceived;jsonReply(200,d);return;
     }
     if(offset!=animationReceived||animationReceived+count>animationExpected){apiError(409,"Posicion invalida");return;}
-    if(animationWriter.write(bytes,count)!=count){cancelAnimationUpload();apiError(500,"Error al guardar");return;}
+    errno=0;size_t written=animationWriter.write(bytes,count);int writeError=errno;
+    if(written!=count){
+      Serial.printf("[MEDIA] write offset=%u written=%u expected=%u errno=%d heap=%u\n",unsigned(animationReceived),unsigned(written),unsigned(count),writeError,ESP.getFreeHeap());
+      cancelAnimationUpload();d.clear();d["error"]="Error al guardar; se conserva el contenido anterior";d["written"]=written;d["errno"]=writeError;d["heap"]=ESP.getFreeHeap();jsonReply(500,d);return;
+    }
     animationCrc=crcBytes(animationCrc,bytes,count);animationReceived+=count;animationUploadAt=millis();
     d.clear();d["received"]=animationReceived;jsonReply(200,d);
   });
