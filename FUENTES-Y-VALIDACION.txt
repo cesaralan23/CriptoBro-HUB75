@@ -1,0 +1,76 @@
+CriptoBro: fuentes, decisiones y estado de validación
+Revisión: 16/10/2026. Firmware candidato 1.4.7.
+
+SOLUCIONES EXISTENTES UTILIZADAS
+
+1. Control del panel: ESP32-HUB75-MatrixPanel-DMA, revisión 67cf7e7,
+   junto con Adafruit GFX 1.12.6. No se escribió un controlador HUB75 nuevo.
+   https://github.com/mrcodetastic/ESP32-HUB75-MatrixPanel-DMA
+   Las opciones de reloj, blanking y doble buffer requieren probarse con
+   el panel concreto; la documentación no garantiza eliminar fallos eléctricos.
+
+2. Particiones y actualización del ESP32: esquema de Espressif con dos
+   particiones de aplicación y otadata. La distribución del espacio es propia.
+   https://docs.espressif.com/projects/esp-idf/en/v4.4.7/esp32/api-guides/partition-tables.html
+   Base instalada: PlatformIO espressif32 6.10.0 / Arduino-ESP32 2.0.17.
+
+3. Actualizaciones de la app: expo-updates y EAS Update.
+   https://docs.expo.dev/eas-update/introduction/
+   https://docs.expo.dev/eas-update/runtime-versions/
+   La APK inicial debe incluir expo-updates. JS y recursos compatibles pueden
+   actualizarse después; cambios nativos pueden exigir una APK nueva.
+
+4. Configuración Wi-Fi: WiFiManager 2.0.17.
+   https://github.com/tzapu/WiFiManager
+
+INTEGRACIÓN PROPIA
+
+La interfaz, emparejamiento, cotizaciones, cola, formatos CBA1/CBQ1 y envío
+HTTP de cuadros RGB332 son código del proyecto. Los límites de 300 KiB,
+32 elementos, 10 fps máximos y timeout de 3 segundos son decisiones propias,
+no especificaciones del fabricante. 10 fps es un techo, no rendimiento medido.
+La prueba Wi-Fi realizada dio aproximadamente 2.5 fps con el cliente Python.
+El streaming requiere teléfono activo en la misma red y no guarda los cuadros
+en flash. No equivale a un reproductor general de video ni transmite audio.
+
+FALLO DE CARGA: EVIDENCIA Y LÍMITES
+
+Se observaron escrituras fallidas con EBADF en SPIFFS. Reabrir el archivo por
+bloque y desactivar buffering no resolvieron el fallo. Migrar a LittleFS tampoco:
+el registro mostró un assert lfs_file_seek / lfs_mlist_isopen y reinicio.
+La hipótesis de que abrir el puerto serie causaba todos los reinicios no quedó
+demostrada: también falló una prueba aislada por Wi-Fi.
+
+La revisión del código oficial 2.0.17 encontró una secuencia sospechosa:
+stop_ssl_socket limpia el contexto con memset y deja socket en cero;
+WiFiClientSecure::stop puede posteriormente ejecutar close(0).
+Si ese descriptor pertenece a un archivo, puede cerrarlo indebidamente.
+Esta es una inferencia fundada en el código; todavía no demuestra por sí sola
+que explique todos los errores registrados en este equipo.
+
+Fuentes exactas para reproducir la revisión:
+https://github.com/espressif/arduino-esp32/blob/2.0.17/libraries/WiFiClientSecure/src/ssl_client.cpp
+  Función stop_ssl_socket, especialmente el memset final.
+https://github.com/espressif/arduino-esp32/blob/2.0.17/libraries/WiFiClientSecure/src/WiFiClientSecure.cpp
+  Funciones stop y destructor.
+
+El candidato 1.4.7 conserva socket=-1 después de stop mediante safe_tls.h.
+Es una adaptación local, no un parche oficial que se haya localizado.
+La versión master consultada reorganiza el cliente; no se ha validado migrar
+todo el framework ni se afirma que cambiar de versión resuelva este caso.
+
+ESTADO AL ESCRIBIR ESTE DOCUMENTO
+
+Verificado: respaldo completo de flash de 4 MB, conservación de NVS durante
+la migración, partición de medios de 917504 bytes y recuperación del archivo
+original de 14544 bytes, CRC32 f915ea67. Prueba previa de streaming y retorno
+por inactividad completada. APK Android 1.3.0 y EAS Update preparados.
+
+Pendiente: instalar y validar 1.4.7 en la placa, ejecutar TEST_TLS_FILE,
+completar dos cargas consecutivas de 305471 bytes mientras funcionan las
+cotizaciones, restaurar el contenido original y verificar tras reiniciar.
+Compilar correctamente no equivale a superar estas pruebas.
+
+Los respaldos, credenciales y registros privados están fuera del repositorio,
+en work/backups/B0A732378074-20261016. No publicar tokens ni la imagen de NVS.
+Actualizar este estado con el resultado real, incluyendo los fallos.
