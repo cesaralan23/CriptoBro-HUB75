@@ -1,4 +1,4 @@
-CriptoBro firmware 1.4.0 / Android 1.3.0
+CriptoBro firmware 1.4.2 / Android 1.3.0
 
 STREAMING
 Biblioteca > preparar cola > Transmitir cola por Wi-Fi.
@@ -21,11 +21,16 @@ Dos slots de firmware de 1536 KiB conservan OTA. Nunca publicar un binario
 mayor que 1536 KiB para equipos migrados. El actual cabe en ambos layouts.
 El firmware detecta la capacidad real al montar; la app consulta maxBytes.
 
-MIGRACION PENDIENTE DE USB
-No se aplicó al equipo B0A732378074: está conectado sólo por Wi-Fi.
+MIGRACION USB APLICADA EL 16/10/2026
+Equipo B0A732378074, flash física 4 MB, COM8. Respaldo completo verificado
+antes de escribir. NVS se conservó byte por byte; el archivo original se
+recuperó con hash idéntico. Wi-Fi y vinculación conservados. Capacidad
+informada por el cartel: 836081 bytes de filesystem, maxBytes=307200.
+Una actualización OTA posterior arrancó correctamente con la nueva tabla.
+Respaldo privado: work/backups/B0A732378074-20261016 (fuera del repositorio).
 No ejecutar pio upload de esp32media a ciegas: cambia offsets y necesita
 respaldo/restauración de archivos y reinicialización de selección OTA.
-Procedimiento técnico para la próxima conexión:
+Procedimiento técnico usado (referencia para otros equipos):
 1. Identificar puerto, flash física, tabla instalada y equipo. Leer y verificar
    un backup completo de flash fuera del repositorio (contiene claves Wi-Fi).
 2. Extraer los archivos de la SPIFFS original del respaldo. Conservar los dos
