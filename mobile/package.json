@@ -17,7 +17,6 @@
     "expo-secure-store": "~57.0.4",
     "expo-status-bar": "~57.0.1",
     "expo-video": "~57.0.5",
-    "fast-png": "^8.0.0",
     "omggif": "^1.0.10",
     "react": "19.2.3",
     "react-dom": "19.2.3",
@@ -28,12 +27,14 @@
     "react-native-svg": "15.15.4",
     "react-native-web": "^0.21.2",
     "react-native-worklets": "0.10.1",
-    "react-native-zeroconf": "^0.17.6"
+    "react-native-zeroconf": "^0.17.6",
+    "upng-js": "^2.1.0"
   },
   "devDependencies": {
     "@types/node": "^26.6.5",
     "@types/omggif": "^1.0.5",
     "@types/react": "~19.2.2",
+    "@types/upng-js": "^2.1.5",
     "eslint": "^9.39.5",
     "eslint-config-expo": "~57.0.2",
     "tsx": "^4.23.15",

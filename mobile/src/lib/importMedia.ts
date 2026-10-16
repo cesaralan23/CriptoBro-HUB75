@@ -3,9 +3,9 @@ import { File } from 'expo-file-system';
 import { createVideoPlayer } from 'expo-video';
 import { ImageManipulator, SaveFormat } from 'expo-image-manipulator';
 import { Platform } from 'react-native';
-import { decode } from 'fast-png';
+import { pngFrame } from './png';
 import { decodeGif } from './gif';
-import { fitClip, resizePixels } from './animation';
+import { fitClip } from './animation';
 export async function importMedia(seconds: number, progress: (text: string) => void) {
   const result = await DocumentPicker.getDocumentAsync({type: ['image/gif', 'video/*'], copyToCacheDirectory: true});
   if (result.canceled) return null;
@@ -43,9 +43,7 @@ export async function importMedia(seconds: number, progress: (text: string) => v
             const saved = await image.saveAsync({format: SaveFormat.PNG});
             const file = new File(saved.uri);
             try {
-              const png = decode(await file.bytes());
-              if (png.depth !== 8 || (png.channels !== 3 && png.channels !== 4)) throw new Error('Formato de imagen no compatible');
-              frames.push(resizePixels(png.data, png.width, png.height, png.channels));
+              frames.push(pngFrame(await file.bytes()));
             } finally { file.delete(); }
           } finally { image.release(); }
         } finally { context.release(); }
