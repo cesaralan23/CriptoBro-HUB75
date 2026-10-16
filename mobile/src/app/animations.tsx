@@ -500,7 +500,7 @@ function Library() {
               setMessage("Transmisión detenida. El cartel vuelve a su contenido guardado.");
             } finally {setStreaming(false);}
           })} />
-        <Text style={styles.note}>Streaming repite sólo esta cola, sin guardarla. Mantené la app abierta y el mismo Wi-Fi. Si se corta, vuelve al contenido guardado en 3 segundos.</Text>
+        <Text style={styles.note}>Streaming hasta 30 fps. Mantené la app abierta en el mismo Wi-Fi. Si se corta, muestra el contenido guardado y se reconecta solo. Reimportá los GIF antiguos para aprovechar más cuadros.</Text>
         {busy && (
           <Pressable
             accessibilityRole="button"

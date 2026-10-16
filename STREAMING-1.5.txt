@@ -1,0 +1,52 @@
+Streaming 1.5.0 y diagnóstico de ghosting
+
+TRANSPORTE
+Se usa arduinoWebSockets 2.7.3 (RFC6455), no una implementación propia de TCP.
+https://github.com/Links2004/arduinoWebSockets
+React Native ofrece WebSocket sin agregar un módulo nativo a la APK:
+https://reactnative.dev/docs/network#websocket-support
+
+POST /api/stream/start mantiene la autorización Bearer existente y devuelve
+una sesión temporal y wsPort=8081. El cliente abre ws://IP:8081/ y presenta
+la sesión como primer mensaje de texto. El servidor responde ready.
+Cada mensaje binario tiene 4 bytes de secuencia little-endian y 2048 bytes
+RGB332. La respuesta binaria confirma la secuencia. Sólo hay un cuadro pendiente;
+no se acumulan imágenes atrasadas. La pantalla se dibuja cada 33 ms durante
+streaming. Objetivo máximo 30 fps, sujeto a señal Wi-Fi y rendimiento del móvil.
+El protocolo HTTP anterior sigue disponible para la app anterior.
+
+RECUPERACIÓN
+Ante cierre, error o falta de confirmación durante 2 segundos, la app cierra
+el socket, vuelve a consultar y autenticar el cartel y abre otra sesión.
+Reintenta hasta que el usuario detenga la transmisión, con pausas de 1..3 s.
+Una vinculación inválida requiere volver a vincular, no reintentos infinitos.
+El elemento interrumpido comienza nuevamente; no reproduce una cola atrasada.
+El ESP32 reintenta su conexión Wi-Fi cada 10 segundos conservando credenciales.
+Sin cuadros durante 3 segundos vuelve al contenido guardado.
+La app debe quedar en primer plano. Si la IP del cartel cambia, hay que volver
+a localizarlo en la app; no se envían credenciales a un equipo con otro ID.
+
+CONTENIDO
+Nuevas importaciones GIF/video conservan hasta 30 fps para streaming.
+La copia para flash continúa en CBA1, hasta 10 fps/255 cuadros y 300 KiB.
+Reducir cuadros para la copia de flash no reduce los cuadros de streaming.
+Los borradores antiguos contienen sólo los cuadros importados anteriormente:
+hay que reimportar el archivo original para obtener más fluidez.
+Una imagen fija o GIF de pocos cuadros no gana movimiento por subir el límite.
+
+GHOSTING
+Fuente del controlador:
+https://github.com/mrcodetastic/ESP32-HUB75-MatrixPanel-DMA#clock-phase
+La biblioteca recomienda comparar clkphase para copias/desplazamientos de píxeles.
+El código instalado 67cf7e7 admite latch_blanking hasta 8; ya se usa 8,
+reloj 8 MHz, doble buffer y brillo 50% (máximo permitido 80%).
+Los comandos serie CLOCK_PHASE_0 / CLOCK_PHASE_1 guardan la fase y reinician.
+La fase original es 1. No se puede confirmar la mejora visual mediante HTTP.
+TEST_WIFI_DROP desconecta Wi-Fi sin borrar la configuración para comprobar
+la recuperación automática. Estos comandos requieren acceso serie local.
+
+ENTREGA
+Los cambios de la app son JS y se publican mediante EAS Update para el runtime
+de la APK 1.3.0. No cambian módulos nativos ni permisos.
+Resultados en placa: completar tras las mediciones, sin confundir tests de
+software con una inspección visual del panel.
