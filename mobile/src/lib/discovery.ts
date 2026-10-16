@@ -10,7 +10,7 @@ export async function discover(
 ): Promise<() => void> {
   if (!canDiscover) {
     onError(
-      "La búsqueda automática requiere nuestra app de desarrollo. En Expo Go podés conectar por IP.",
+      "La búsqueda automática requiere nuestra APK instalada. En Expo Go podés conectar por IP.",
     );
     return () => {};
   }

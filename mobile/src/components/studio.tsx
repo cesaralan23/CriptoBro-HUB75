@@ -114,10 +114,12 @@ export function Segments<T extends string>({
   value,
   options,
   onChange,
+  disabled = false,
 }: {
   value: T;
   options: { key: T; title: string }[];
   onChange: (v: T) => void;
+  disabled?: boolean;
 }) {
   return (
     <View
@@ -132,6 +134,7 @@ export function Segments<T extends string>({
       {options.map((o) => (
         <Pressable
           key={o.key}
+          disabled={disabled}
           accessibilityRole="tab"
           accessibilityState={{ selected: value === o.key }}
           onPress={() => onChange(o.key)}

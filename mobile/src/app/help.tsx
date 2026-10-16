@@ -1,3 +1,5 @@
+import { useState } from "react";
+import { request } from "../lib/api";
 import { ScrollView, Text } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { router } from "expo-router";
@@ -5,7 +7,8 @@ import { Button, Card, Label, styles } from "../components/ui";
 import { Hero, Badge } from "../components/studio";
 import { useSession } from "../lib/session";
 export default function Help() {
-  const { device, demo } = useSession();
+  const [diagnostic, setDiagnostic] = useState("");
+  const { device, demo, token } = useSession();
   return (
     <SafeAreaView style={styles.page} edges={["top"]}>
       <ScrollView contentContainerStyle={styles.content}>
@@ -28,6 +31,45 @@ export default function Help() {
             onPress={() => router.navigate("/")}
           />
         </Card>
+        {device && (
+          <Card>
+            <Label>Comprobar píxeles y conexión</Label>
+            <Button
+              title="Mostrar patrón durante 20 segundos"
+              onPress={() =>
+                void request(device.address, "display-test", token, {})
+                  .then(() =>
+                    setDiagnostic(
+                      "Mirá las líneas: deben mantenerse quietas, sin puntos fuera del dibujo. Al terminar vuelve el contenido.",
+                    ),
+                  )
+                  .catch((e) => setDiagnostic(e.message))
+              }
+            />
+            <Button
+              secondary
+              title="Consultar señal y refresco"
+              onPress={() =>
+                void request<{ wifiRssi: number; refreshHz: number }>(
+                  device.address,
+                  "info",
+                )
+                  .then((d) =>
+                    setDiagnostic(
+                      d.refreshHz
+                        ? `Wi-Fi: ${d.wifiRssi} dBm · Refresco: ${d.refreshHz} Hz`
+                        : "Esperá al firmware 1.3.0.",
+                    ),
+                  )
+                  .catch((e) => setDiagnostic(e.message))
+              }
+            />
+            <Text style={styles.note}>
+              {diagnostic ||
+                "Este patrón ayuda a distinguir un problema del archivo de uno de refresco o señal. No cambia el brillo."}
+            </Text>
+          </Card>
+        )}
         {[
           [
             "01 · Conectar",
@@ -38,8 +80,8 @@ export default function Help() {
             "Elegí Contenido, Estilo o Ajustes. La vista previa muestra el diseño, no una captura del panel. Con cambios en vivo activados, el cartel recibe los ajustes; Guardar hace que sobrevivan al apagado.",
           ],
           [
-            "03 · Enviar un clip",
-            "En Biblioteca, elegí una plantilla o importá un GIF/video. Revisá la vista previa y tocá Enviar. En Alternancia elegís cuántas repeticiones y cuántas vueltas de cotizaciones esperar.",
+            "03 · Crear una cola",
+            "En Biblioteca agregá imágenes, GIF o memes a la cola. Elegí el orden y los segundos de cada elemento. Seleccioná Solo multimedia o + Cotizaciones, y guardá la cola.",
           ],
           [
             "La app no abre",
@@ -59,7 +101,7 @@ export default function Help() {
           ],
           [
             "Límites de esta pantalla",
-            "64 × 32 píxeles. Brillo máximo de 80%. Clips de hasta 5 segundos, sin sonido, convertidos a un máximo de 40 KB. Se guarda un clip activo; enviar otro lo reemplaza después de verificar la carga.",
+            "64 × 32 píxeles. Brillo máximo de 80%. Clips de hasta 5 segundos, sin sonido, convertidos a un máximo de 40 KB. Hasta 8 elementos por cola, con 1 a 300 segundos de exposición cada uno. Los 40 KB se comparten entre todos. La cola anterior se conserva hasta verificar la nueva.",
           ],
         ].map(([title, description]) => (
           <Card key={title}>

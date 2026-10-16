@@ -2,7 +2,7 @@
   "expo": {
     "name": "CriptoBro",
     "slug": "criptobro-local",
-    "version": "1.1.0",
+    "version": "1.2.0",
     "orientation": "portrait",
     "icon": "./assets/studio-icon.png",
     "userInterfaceStyle": "dark",
@@ -22,7 +22,7 @@
         "ACCESS_WIFI_STATE",
         "CHANGE_WIFI_MULTICAST_STATE"
       ],
-      "versionCode": 2
+      "versionCode": 3
     },
     "web": {
       "favicon": "./assets/studio-icon.png"

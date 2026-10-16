@@ -196,11 +196,18 @@ void drawFrame() {
     compactText(8,4,"CODIGO",cyan);compactText(8,18,pairCode.c_str(),white);
   } else if(pendingUntil(identifyUntil)) {
     compactText(8,4,"PANEL",cyan);compactText(8,18,deviceId.substring(6).c_str(),white);
-  } else if(portal.getConfigPortalActive()) {
+  } else if(pendingUntil(displayTestUntil)) {
+    // Fixed geometry isolates row timing/ghosting from GIF content and Wi-Fi.
+    uint16_t c[3]={red,green,cyan};
+    int phase=(millis()/4000)%5;
+    if(phase<3){for(int y=1;y<32;y+=4)panel->drawFastHLine(2,y,60,c[phase]);}
+    else if(phase==3){for(int x=2;x<62;x+=4)panel->drawFastVLine(x,2,28,white);}
+    else {panel->drawRect(2,2,60,28,white);panel->drawLine(2,2,61,29,green);}
+  } else if(portal.getConfigPortalActive()&&!animationCount) {
     uint32_t page=(millis()/16000)%3;
     text(0,0,page==1?"CLAVE":"WIFI",cyan);
     marquee(18,page==0?"CriptoBro64":page==1?apPassword:"192.168.4.1",white);
-  } else if(animationPlaying&&drawAnimation()) {
+  } else if((animationPlaying||animationOnly)&&drawAnimation()) {
     // Decoded one frame from flash; animation playback never blocks quote retrieval.
   } else {
     char top[64],bottom[64];
@@ -231,6 +238,10 @@ void setup() {
   HUB75_I2S_CFG::i2s_pins pins={25,26,27,14,13,32,23,19,18,33,-1,21,4,22};
   HUB75_I2S_CFG config(64,32,1,pins);
   config.double_buff=true;
+  // Conservative row-switch blanking, explicit low clock and sufficient PWM refresh.
+  config.i2sspeed=HUB75_I2S_CFG::HZ_8M;
+  config.latch_blanking=6;
+  config.min_refresh_rate=120;
   panel=new MatrixPanel_I2S_DMA(config);
   if(!panel->begin()) {Serial.println("[ERROR] DMA");while(true) delay(1000);}
   setBrightnessPercent(50); panel->setTextWrap(false);
@@ -238,7 +249,7 @@ void setup() {
   red=panel->color565(255,25,30); orange=panel->color565(255,125,0);
   cyan=panel->color565(0,220,255); purple=panel->color565(170,50,255); grey=panel->color565(90,105,120);
   text(0,0,"BOOT",orange);text(0,18,"64X32",white);panel->flipDMABuffer();
-  WiFi.mode(WIFI_STA); WiFi.setHostname("criptobro64"); WiFi.setAutoReconnect(true);
+  WiFi.mode(WIFI_STA); WiFi.setHostname("criptobro64"); WiFi.setAutoReconnect(true); WiFi.setSleep(false);
   portal.setDebugOutput(false); portal.setConfigPortalBlocking(false); portal.setConnectTimeout(12);
   portal.setTitle("CriptoBro 64 - WiFi");
   portal.setAPCallback([](WiFiManager*) {Serial.printf("[WIFI] Red=CriptoBro64 clave=%s URL=http://192.168.4.1\n",apPassword);});

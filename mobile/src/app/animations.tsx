@@ -1,416 +1,500 @@
-import { useEffect, useMemo, useState, useRef } from "react";
-import { ScrollView, Text, View, Pressable } from "react-native";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { ScrollView, Text, View, Pressable, Switch } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { Hero, Badge, Segments, Icon } from "../components/studio";
-import { fromByteArray } from "base64-js";
+import { Hero, Badge, Segments } from "../components/studio";
 import { Button, Card, Label, Input, styles, colors } from "../components/ui";
 import ClipPreview from "../components/ClipPreview";
-import { Clip, crc32, meme, memeNames } from "../lib/animation";
+import { Clip, meme, memeNames, MAX_BYTES } from "../lib/animation";
 import { importMedia } from "../lib/importMedia";
 import { request } from "../lib/api";
 import { useSession } from "../lib/session";
-type AnimationState = {
+import { packQueue, QueueItem } from "../lib/playlist";
+import { retryTransfer, uploadQueue } from "../lib/upload";
+import { loadDraft, saveDraft } from "../lib/queueStorage";
+type Player = {
   available: boolean;
   enabled: boolean;
+  onlyMedia: boolean;
+  count: number;
   name: string;
-  loops: number;
   rounds: number;
 };
 export default function Animations() {
   const { device } = useSession();
-  return <AnimationPanel key={device?.id || "demo"} />;
+  return <Library key={device?.id || "demo"} />;
 }
-function AnimationPanel() {
+function Library() {
   const { device, token, demo } = useSession();
-  const scroll = useRef<ScrollView>(null);
-  const [section, setSection] = useState<"gallery" | "import" | "rotation">(
-    "gallery",
+  const [section, setSection] = useState<"queue" | "gallery" | "import">(
+    "queue",
   );
-  const [query, setQuery] = useState("");
-  const [preview, setPreview] = useState(false);
   const gallery = useMemo(() => memeNames.map(meme), []);
-  const [clip, setClip] = useState<Clip>(gallery[0]),
-    [busy, setBusy] = useState(false),
-    [message, setMessage] = useState(""),
-    [seconds, setSeconds] = useState(3),
-    [loops, setLoops] = useState(2),
-    [rounds, setRounds] = useState(1),
-    [active, setActive] = useState<AnimationState | null>(null);
+  const [items, setItems] = useState<QueueItem[]>([]);
+  const [loaded, setLoaded] = useState(false);
+  const [only, setOnly] = useState(true),
+    [rounds, setRounds] = useState(1);
+  const [seconds, setSeconds] = useState(3),
+    [query, setQuery] = useState("");
+  const [busy, setBusy] = useState(false),
+    [message, setMessage] = useState("");
+  const [active, setActive] = useState<Player | null>(null);
+  const [selected, setSelected] = useState<Clip | null>(null);
+  const cancel = useRef(false);
+  const draftKey = device?.id || "demo";
+  useEffect(() => {
+    let live = true;
+    loadDraft(draftKey)
+      .then((value) => {
+        if (live) {
+          setItems(value);
+          setLoaded(true);
+        }
+      })
+      .catch(() => {
+        if (live) setLoaded(true);
+      });
+    return () => {
+      live = false;
+      cancel.current = true;
+    };
+  }, [draftKey]);
+  useEffect(() => {
+    if (loaded)
+      void saveDraft(draftKey, items).catch(() =>
+        setMessage("No se pudo guardar el borrador en este teléfono."),
+      );
+  }, [items, loaded, draftKey]);
   useEffect(() => {
     if (!device) return;
     let live = true;
-    request<AnimationState>(device.address, "animation", token)
+    request<Player>(device.address, "animation", token)
       .then((s) => {
         if (live) {
           setActive(s);
-          setLoops(s.loops);
+          setOnly(s.onlyMedia ?? false);
           setRounds(s.rounds);
         }
       })
-      .catch((e) => {
+      .catch(() => {
         if (live)
           setMessage(
-            `No pude leer el reproductor: ${e.message}. Requiere firmware 1.2.0.`,
+            "Cartel sin respuesta. Tu cola sigue guardada en este teléfono.",
           );
       });
     return () => {
       live = false;
     };
   }, [device, token]);
+  const used = 5 + items.reduce((n, item) => n + 2 + item.clip.bytes.length, 0);
+  const duration = items.reduce((n, item) => n + item.seconds, 0);
+  function add(clip: Clip) {
+    if (items.length >= 8) {
+      setMessage("La cola admite hasta 8 elementos.");
+      return;
+    }
+    const next = [
+      ...items,
+      {
+        id: Date.now().toString() + Math.random().toString(16).slice(2),
+        clip,
+        seconds: 10,
+      },
+    ];
+    try {
+      packQueue(next);
+      setItems(next);
+      setSection("queue");
+      setMessage("Agregado a tu cola. Todavía no se envió al cartel.");
+    } catch (e) {
+      setMessage((e as Error).message);
+    }
+  }
+  function move(index: number, delta: number) {
+    setItems((current) => {
+      const next = [...current];
+      [next[index], next[index + delta]] = [next[index + delta], next[index]];
+      return next;
+    });
+  }
   async function action(work: () => Promise<void>) {
+    cancel.current = false;
     setBusy(true);
     setMessage("");
     try {
       await work();
     } catch (e) {
-      setMessage(e instanceof Error ? e.message : "No se pudo completar");
+      setMessage((e as Error).message + " Tu borrador se conserva.");
     } finally {
       setBusy(false);
     }
   }
   async function configure(enabled: boolean) {
     if (!device) {
-      setMessage("Vista de demostración: no se envió al cartel.");
+      setMessage("Demostración: no se modificó ningún cartel.");
       return;
     }
-    const s = await request<AnimationState>(
-      device.address,
-      "animation/settings",
-      token,
-      { enabled, loops, rounds },
+    const state = await retryTransfer(
+      () =>
+        request<Player>(device.address, "animation/settings", token, {
+          enabled,
+          loops: 2,
+          rounds,
+          onlyMedia: only,
+        }),
+      setMessage,
+      () => cancel.current,
     );
-    setActive(s);
-    setMessage("Alternancia guardada en el cartel.");
+    setActive(state);
   }
-  async function upload() {
+  async function send() {
     if (!device) {
-      setMessage(
-        "Vinculá un cartel para enviar. La vista previa funciona en demo.",
-      );
+      setMessage("Vinculá una pantalla desde Pantallas para enviar la cola.");
       return;
     }
-    const info = await request<{ animationApi?: number; version: string }>(
+    const data = packQueue(items);
+    await uploadQueue(
       device.address,
-      "info",
-    );
-    if (info.animationApi !== 1)
-      throw new Error(
-        `El cartel todavía tiene firmware ${info.version}. Necesita 1.2.0: dejalo conectado a Internet para que se actualice por OTA y volvé a enviar.`,
-      );
-    const transfer = await request<{ upload: string }>(
-      device.address,
-      "animation/start",
       token,
-      { size: clip.bytes.length, crc: crc32(clip.bytes), name: clip.name },
-    );
-    for (let offset = 0; offset < clip.bytes.length; offset += 768) {
-      await request(device.address, "animation/chunk", token, {
-        upload: transfer.upload,
-        offset,
-        data: fromByteArray(clip.bytes.slice(offset, offset + 768)),
-      });
-      setMessage(
-        `Enviando… ${Math.min(100, Math.round(((offset + 768) * 100) / clip.bytes.length))}%`,
-      );
-    }
-    setActive(
-      await request<AnimationState>(device.address, "animation/finish", token, {
-        upload: transfer.upload,
-      }),
+      data,
+      setMessage,
+      () => cancel.current,
     );
     await configure(true);
-    await request(device.address, "animation/play", token, {});
-    setMessage(
-      "Clip guardado. Se reproduce ahora y alternará con las cotizaciones.",
+    await retryTransfer(
+      () => request(device.address, "animation/play", token, {}),
+      setMessage,
+      () => cancel.current,
     );
+    setMessage("Cola guardada y reproduciendo. Podés cerrar la app.");
   }
   return (
     <SafeAreaView style={styles.page} edges={["top"]}>
       <ScrollView
-        ref={scroll}
         contentContainerStyle={styles.content}
         keyboardShouldPersistTaps="handled"
       >
         <Hero
-          eyebrow="TU BIBLIOTECA DE PÍXELES"
-          title="Dale vida al cartel."
-          description="Elegí un meme o traé algo tuyo. Revisalo antes de enviarlo."
+          eyebrow="REPRODUCTOR"
+          title="Tu cola, tu ritmo."
+          description="Ordená imágenes y animaciones. Elegí cuánto dura cada una."
         />
-        <Badge good={!demo}>{demo ? "EXPLORANDO EN DEMO" : device?.name}</Badge>
-        <Card>
-          <View style={[styles.row, { justifyContent: "space-between" }]}>
-            <Label>En preparación</Label>
-            <Badge>64 × 32</Badge>
-          </View>
-          {(section !== "gallery" || preview) && <ClipPreview clip={clip} />}
-          <Label>{clip.name}</Label>
-          <Text style={styles.note}>
-            {(clip.frames.length / clip.fps).toFixed(1)} s · {clip.fps}{" "}
-            cuadros/s · {(clip.bytes.length / 1024).toFixed(1)} KB
-          </Text>
-          <View
-            style={{
-              height: 5,
-              borderRadius: 3,
-              backgroundColor: colors.line,
-              overflow: "hidden",
-            }}
-          >
-            <View
-              style={{
-                height: 5,
-                width: `${(clip.bytes.length / 40960) * 100}%`,
-                backgroundColor: colors.accent,
-              }}
-            />
-          </View>
-          <Text style={styles.note}>
-            Memoria del clip: {((clip.bytes.length / 40960) * 100).toFixed(0)}%
-            de 40 KB
-          </Text>
-          {section === "gallery" && (
-            <Button
-              secondary
-              title={preview ? "Ocultar vista previa" : "Ver vista previa"}
-              onPress={() => setPreview(!preview)}
-            />
-          )}
-        </Card>
-        {!!message && (
-          <View
-            style={{
-              padding: 14,
-              borderRadius: 14,
-              backgroundColor: "#29243E",
-            }}
-          >
-            <Text accessibilityLiveRegion="polite" style={styles.subtitle}>
-              {message}
-            </Text>
-          </View>
-        )}
+        <Badge good={!!active?.enabled}>
+          {demo
+            ? "VISTA DE DEMOSTRACIÓN"
+            : active?.enabled
+              ? `EN EL CARTEL · ${active.onlyMedia ? "SOLO MULTIMEDIA" : "CON COTIZACIONES"}`
+              : "COLA LOCAL · SIN ENVIAR"}
+        </Badge>
         <Segments
           value={section}
           onChange={setSection}
           options={[
-            { key: "gallery", title: "Plantillas" },
+            { key: "queue", title: `Cola (${items.length})` },
+            { key: "gallery", title: "Memes" },
             { key: "import", title: "Importar" },
-            { key: "rotation", title: "Alternancia" },
           ]}
         />
-        {section === "gallery" && (
+        {!!message && (
+          <Card>
+            <Text accessibilityLiveRegion="polite" style={styles.subtitle}>
+              {message}
+            </Text>
+          </Card>
+        )}
+        {section === "queue" && (
           <>
-            <Input
-              accessibilityLabel="Buscar plantilla"
-              placeholder="Buscar un meme…"
-              value={query}
-              onChangeText={setQuery}
-            />
-            <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 12 }}>
-              {gallery
-                .filter((item) =>
-                  item.name.toLowerCase().includes(query.toLowerCase()),
-                )
-                .map((item) => (
-                  <Pressable
-                    key={item.name}
-                    accessibilityRole="button"
-                    accessibilityLabel={`Elegir ${item.name}`}
-                    accessibilityState={{ selected: clip.name === item.name }}
-                    disabled={busy}
-                    onPress={() => {
-                      setClip(item);
-                      setPreview(true);
-                      setMessage(`${item.name} listo para enviar.`);
-                      scroll.current?.scrollTo({ y: 0, animated: true });
-                    }}
-                    style={{
-                      width: "47%",
-                      flexGrow: 1,
-                      padding: 12,
-                      gap: 12,
-                      borderWidth: 2,
-                      borderColor:
-                        clip.name === item.name ? colors.accent : colors.line,
-                      backgroundColor: colors.card,
-                      borderRadius: 20,
-                      opacity: busy ? 0.5 : 1,
-                    }}
-                  >
-                    <ClipPreview clip={item} playing={false} />
-                    <Text style={styles.label}>{item.name}</Text>
-                    <Text style={styles.note}>
-                      Animación ·{" "}
-                      {clip.name === item.name
-                        ? "Seleccionada"
-                        : "Tocar para elegir"}
-                    </Text>
-                  </Pressable>
-                ))}
-            </View>
-            {!gallery.some((item) =>
-              item.name.toLowerCase().includes(query.toLowerCase()),
-            ) && (
-              <Card>
-                <Label>No encontramos ese meme</Label>
-                <Text style={styles.note}>
-                  Probá con HODL, STONKS, MOON o DIP. También podés importar tu
-                  propio GIF.
-                </Text>
+            <Card>
+              <Label>Reproducción en el cartel</Label>
+              <Segments
+                disabled={busy}
+                value={only ? "media" : "mixed"}
+                onChange={(v) => setOnly(v === "media")}
+                options={[
+                  { key: "media", title: "Solo multimedia" },
+                  { key: "mixed", title: "+ Cotizaciones" },
+                ]}
+              />
+              <Text style={styles.note}>
+                {only
+                  ? "La cola se repite sin mostrar monedas. Los GIF se repiten durante el tiempo que elegiste."
+                  : "Se reproduce la cola completa entre vueltas de cotizaciones."}
+              </Text>
+              {!only && (
+                <View style={styles.row}>
+                  {[1, 2, 3, 4, 5].map((n) => (
+                    <Button
+                      key={n}
+                      title={`${n} vuelta${n === 1 ? "" : "s"}`}
+                      secondary={rounds !== n}
+                      disabled={busy}
+                      onPress={() => setRounds(n)}
+                    />
+                  ))}
+                </View>
+              )}
+              {active?.available && (
                 <Button
                   secondary
-                  title="Limpiar búsqueda"
-                  onPress={() => setQuery("")}
+                  disabled={busy}
+                  title="Aplicar modo a la cola del cartel"
+                  onPress={() =>
+                    void action(async () => {
+                      await configure(true);
+                      setMessage("Modo guardado en el cartel.");
+                    })
+                  }
+                />
+              )}
+            </Card>
+            {!items.length ? (
+              <Card>
+                <Label>Empezá tu primera cola</Label>
+                <Text style={styles.subtitle}>
+                  Agregá un meme o elegí una imagen, GIF o video del teléfono.
+                </Text>
+                <Button
+                  title="Elegir de mi galería"
+                  onPress={() => setSection("import")}
+                />
+                <Button
+                  secondary
+                  title="Explorar memes"
+                  onPress={() => setSection("gallery")}
+                />
+              </Card>
+            ) : (
+              items.map((item, index) => (
+                <Card key={item.id}>
+                  <View
+                    style={[styles.row, { justifyContent: "space-between" }]}
+                  >
+                    <Label>
+                      {index + 1}. {item.clip.name}
+                    </Label>
+                    <Badge>
+                      {(item.clip.bytes.length / 1024).toFixed(1)} KB
+                    </Badge>
+                  </View>
+                  <ClipPreview clip={item.clip} playing={false} />
+                  <Label>Tiempo en pantalla</Label>
+                  <View style={styles.row}>
+                    <Input
+                      accessibilityLabel={`Segundos de ${item.clip.name}`}
+                      keyboardType="number-pad"
+                      value={String(item.seconds)}
+                      maxLength={3}
+                      editable={!busy}
+                      style={{ width: 90 }}
+                      onChangeText={(v) =>
+                        setItems(
+                          items.map((x, i) =>
+                            i === index
+                              ? { ...x, seconds: Number(v.replace(/\D/g, "")) }
+                              : x,
+                          ),
+                        )
+                      }
+                    />
+                    <Text style={styles.subtitle}>segundos · 1 a 300</Text>
+                  </View>
+                  <View style={styles.row}>
+                    {[5, 10, 30, 60].map((n) => (
+                      <Button
+                        key={n}
+                        title={`${n}s`}
+                        secondary={item.seconds !== n}
+                        disabled={busy}
+                        onPress={() =>
+                          setItems(
+                            items.map((x, i) =>
+                              i === index ? { ...x, seconds: n } : x,
+                            ),
+                          )
+                        }
+                      />
+                    ))}
+                  </View>
+                  <View style={styles.row}>
+                    <Button
+                      secondary
+                      title="↑"
+                      disabled={busy || index === 0}
+                      onPress={() => move(index, -1)}
+                    />
+                    <Button
+                      secondary
+                      title="↓"
+                      disabled={busy || index === items.length - 1}
+                      onPress={() => move(index, 1)}
+                    />
+                    <Button
+                      secondary
+                      title="Vista previa"
+                      onPress={() => setSelected(item.clip)}
+                    />
+                    <Button
+                      secondary
+                      title="Quitar"
+                      disabled={busy}
+                      onPress={() =>
+                        setItems(items.filter((x) => x.id !== item.id))
+                      }
+                    />
+                  </View>
+                </Card>
+              ))
+            )}
+            {!!items.length && (
+              <Button
+                secondary
+                disabled={busy}
+                title="+ Agregar otro elemento"
+                onPress={() => setSection("import")}
+              />
+            )}
+            {selected && (
+              <Card>
+                <Label>{selected.name}</Label>
+                <ClipPreview clip={selected} />
+                <Button
+                  secondary
+                  title="Cerrar vista previa"
+                  onPress={() => setSelected(null)}
                 />
               </Card>
             )}
+            <Card>
+              <Label>
+                {items.length}/8 elementos · {duration} s por vuelta
+              </Label>
+              <View
+                style={{
+                  height: 7,
+                  backgroundColor: colors.line,
+                  borderRadius: 4,
+                }}
+              >
+                <View
+                  style={{
+                    height: 7,
+                    width: `${Math.min(100, (used * 100) / MAX_BYTES)}%`,
+                    backgroundColor: colors.accent,
+                    borderRadius: 4,
+                  }}
+                />
+              </View>
+              <Text style={styles.note}>
+                {(used / 1024).toFixed(1)} / 40 KB. La duración de exposición no
+                aumenta el tamaño del archivo.
+              </Text>
+              {active?.available && (
+                <View style={[styles.row, { justifyContent: "space-between" }]}>
+                  <Label>Reproductor activo</Label>
+                  <Switch
+                    accessibilityLabel="Activar reproductor"
+                    disabled={busy}
+                    value={active.enabled}
+                    onValueChange={(enabled) =>
+                      void action(() => configure(enabled))
+                    }
+                  />
+                </View>
+              )}
+            </Card>
+          </>
+        )}
+        {section === "gallery" && (
+          <>
+            <Input
+              placeholder="Buscar meme…"
+              value={query}
+              onChangeText={setQuery}
+            />
+            {gallery
+              .filter((c) => c.name.toLowerCase().includes(query.toLowerCase()))
+              .map((clip) => (
+                <Card key={clip.name}>
+                  <ClipPreview clip={clip} playing={false} />
+                  <Label>{clip.name}</Label>
+                  <Button
+                    title="+ Agregar a la cola"
+                    disabled={busy}
+                    onPress={() => add(clip)}
+                  />
+                </Card>
+              ))}
           </>
         )}
         {section === "import" && (
           <Card>
-            <Icon name="library" size={32} />
-            <Label>De tu galería al panel</Label>
+            <Label>Imágenes, GIF y videos</Label>
             <Text style={styles.subtitle}>
-              Elegí un GIF o un video. Lo adaptamos al cartel conservando su
-              proporción.
+              Los adaptamos a 64×32 conservando la proporción. Las imágenes
+              quedan quietas; las animaciones se repiten.
             </Text>
-            <Text style={styles.note}>
-              1. Elegí cuánto dura el fragmento inicial.
-            </Text>
+            <Label>Fragmento de GIF / video</Label>
             <View style={styles.row}>
               {[1, 2, 3, 4, 5].map((n) => (
                 <Button
                   key={n}
-                  title={`${n} s`}
+                  title={`${n}s`}
                   secondary={seconds !== n}
                   disabled={busy}
                   onPress={() => setSeconds(n)}
                 />
               ))}
             </View>
+            <Text style={styles.note}>
+              Esto define qué fragmento importar. El tiempo que permanece en
+              pantalla se elige después, en la cola.
+            </Text>
             <Button
               disabled={busy}
-              title={busy ? "Preparando…" : "2. Elegir GIF o video"}
+              title="Elegir archivo"
               onPress={() =>
                 void action(async () => {
-                  const result = await importMedia(seconds, setMessage);
-                  if (result) {
-                    setClip(result);
-                    setMessage(
-                      "Conversión lista. Revisá la vista previa y tocá Enviar.",
-                    );
-                    scroll.current?.scrollTo({ y: 0, animated: true });
-                  }
+                  const clip = await importMedia(seconds, setMessage);
+                  if (clip) add(clip);
                 })
               }
             />
             <Text style={styles.note}>
-              Hasta 20 MB de origen · Sin audio · Video desde Android. Si hace
-              falta, reducimos los cuadros por segundo para que entre.
+              Hasta 20 MB de origen. Si no entra, usá un fragmento más corto.
             </Text>
           </Card>
         )}
-        {section === "rotation" && (
-          <>
-            <Card>
-              <Badge good={!!active?.enabled}>
-                {active?.enabled ? "ALTERNANCIA ACTIVA" : "ALTERNANCIA PAUSADA"}
-              </Badge>
-              <Label>
-                {active?.available
-                  ? active.name
-                  : "Todavía no hay un clip guardado"}
-              </Label>
-              <Text style={styles.subtitle}>Tu secuencia</Text>
-              <View
-                style={{
-                  gap: 10,
-                  padding: 16,
-                  borderRadius: 16,
-                  backgroundColor: "#10111B",
-                }}
-              >
-                <Text style={styles.label}>
-                  ① Cotizaciones · {rounds} vuelta{rounds === 1 ? "" : "s"}
-                </Text>
-                <Text style={styles.note}>↓</Text>
-                <Text style={styles.label}>
-                  ② Clip · {loops} repetici{loops === 1 ? "ón" : "ones"}
-                </Text>
-                <Text style={styles.note}>↻ Vuelve a empezar</Text>
-              </View>
-              <Text style={styles.note}>
-                Una vuelta incluye todas las monedas elegidas. Funciona en modo
-                Cotizaciones; el texto libre no activa esta secuencia.
-              </Text>
-            </Card>
-            <Card>
-              <Label>¿Cuántas veces se repite el clip?</Label>
-              <View style={styles.row}>
-                {[1, 2, 3, 4, 5].map((n) => (
-                  <Button
-                    key={n}
-                    disabled={busy}
-                    title={`${n}`}
-                    secondary={loops !== n}
-                    onPress={() => setLoops(n)}
-                  />
-                ))}
-              </View>
-              <Label>¿Cada cuántas vueltas de monedas?</Label>
-              <View style={styles.row}>
-                {[1, 2, 3, 4, 5].map((n) => (
-                  <Button
-                    key={n}
-                    disabled={busy}
-                    title={`${n}`}
-                    secondary={rounds !== n}
-                    onPress={() => setRounds(n)}
-                  />
-                ))}
-              </View>
-              <Button
-                disabled={busy || (!demo && !active?.available)}
-                title="Guardar y activar alternancia"
-                onPress={() => void action(() => configure(true))}
-              />
-              <Button
-                disabled={busy || (!demo && !active?.available)}
-                secondary
-                title="Pausar animaciones"
-                onPress={() => void action(() => configure(false))}
-              />
-            </Card>
-          </>
-        )}
-        <Text style={styles.note}>
-          Se conserva un clip en el cartel. Al enviar otro, reemplaza al
-          anterior después de comprobar la carga.
-        </Text>
       </ScrollView>
       <View
         style={{
-          paddingHorizontal: 20,
-          paddingTop: 10,
-          paddingBottom: 12,
+          padding: 16,
           gap: 8,
-          backgroundColor: "#12131E",
           borderTopWidth: 1,
           borderColor: colors.line,
+          backgroundColor: colors.card,
         }}
       >
-        <Text numberOfLines={1} style={styles.note}>
+        <Text numberOfLines={2} style={styles.note}>
           {busy
             ? message
-            : demo
-              ? "Vista previa · Vinculá un cartel para enviar"
-              : `Destino: ${device?.name}`}
+            : `${items.length} elementos preparados · ${device?.name || "Sin pantalla vinculada"}`}
         </Text>
         <Button
-          disabled={busy}
-          title={busy ? "Procesando…" : `Enviar ${clip.name}`}
-          onPress={() => void action(upload)}
+          disabled={busy || !items.length || !loaded}
+          title={busy ? "Enviando…" : "Guardar cola y reproducir"}
+          onPress={() => void action(send)}
         />
+        {busy && (
+          <Pressable
+            accessibilityRole="button"
+            onPress={() => {
+              cancel.current = true;
+            }}
+          >
+            <Text style={[styles.label, { textAlign: "center", padding: 8 }]}>
+              Cancelar envío
+            </Text>
+          </Pressable>
+        )}
       </View>
     </SafeAreaView>
   );

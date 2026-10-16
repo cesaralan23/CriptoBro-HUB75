@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Badge, Hero, Segments } from "../components/studio";
+import { router } from "expo-router";
 import { presets } from "../lib/presets";
 import { ScrollView, Text, View, Switch, Pressable } from "react-native";
 import Slider from "@react-native-community/slider";
@@ -171,6 +172,35 @@ function EditorPanel() {
     setRevision((v) => v + 1);
     latest.current++;
   }
+  async function chooseContent(mode: "ticker" | "text") {
+    change({ mode });
+    if (session.device) {
+      try {
+        await request(
+          session.device.address,
+          "animation/settings",
+          session.token,
+          { enabled: false, onlyMedia: false, loops: 2, rounds: 1 },
+        );
+        setMessage(
+          "Reproductor pausado. Mostrando " +
+            (mode === "ticker" ? "cotizaciones" : "texto") +
+            ".",
+        );
+      } catch (e) {
+        setMessage((e as Error).message);
+      }
+    }
+  }
+  const colorNames: Record<string, string> = {
+    DCEBFF: "Blanco",
+    "00FF46": "Verde",
+    FF191E: "Rojo",
+    FF7D00: "Naranja",
+    "00DCFF": "Celeste",
+    AA32FF: "Violeta",
+    FFFF00: "Amarillo",
+  };
   const palette = [
     "DCEBFF",
     "00FF46",
@@ -245,10 +275,15 @@ function EditorPanel() {
                   key={mode}
                   title={mode === "ticker" ? "Cotizaciones" : "Texto libre"}
                   secondary={s.mode !== mode}
-                  onPress={() => change({ mode })}
+                  onPress={() => void chooseContent(mode)}
                 />
               ))}
             </View>
+            <Button
+              secondary
+              title="Solo imágenes / GIF · Armar cola"
+              onPress={() => router.push("/animations")}
+            />
             {s.mode === "text" ? (
               <>
                 <Input
@@ -330,6 +365,11 @@ function EditorPanel() {
                     key={p.name}
                     accessibilityRole="button"
                     accessibilityLabel={`Aplicar estilo ${p.name}`}
+                    accessibilityState={{
+                      selected: Object.entries(p.settings).every(
+                        ([k, v]) => s[k as keyof Settings] === v,
+                      ),
+                    }}
                     onPress={() => change(p.settings)}
                     style={{
                       width: "48%",
@@ -338,7 +378,11 @@ function EditorPanel() {
                       borderRadius: 16,
                       backgroundColor: "#10111B",
                       borderWidth: 1,
-                      borderColor: colors.line,
+                      borderColor: Object.entries(p.settings).every(
+                        ([k, v]) => s[k as keyof Settings] === v,
+                      )
+                        ? colors.accent
+                        : colors.line,
                       gap: 8,
                     }}
                   >
@@ -351,7 +395,14 @@ function EditorPanel() {
                     >
                       Aa
                     </Text>
-                    <Text style={styles.label}>{p.name}</Text>
+                    <Text style={styles.label}>
+                      {Object.entries(p.settings).every(
+                        ([k, v]) => s[k as keyof Settings] === v,
+                      )
+                        ? "✓ "
+                        : ""}
+                      {p.name}
+                    </Text>
                     <Text style={styles.note}>{p.detail}</Text>
                   </Pressable>
                 ))}
@@ -442,24 +493,40 @@ function EditorPanel() {
                 (key, i) => (
                   <View key={key} style={{ gap: 10 }}>
                     <Text style={styles.subtitle}>
-                      {["Precio y texto", "Suba", "Baja"][i]}
+                      {["Precio y texto", "Suba", "Baja"][i]} ·{" "}
+                      {colorNames[s[key].toUpperCase()] || "#" + s[key]}
                     </Text>
                     <View style={styles.row}>
                       {palette.map((color) => (
                         <Pressable
                           key={color}
                           accessibilityRole="button"
-                          accessibilityLabel={`Color ${color} para ${key}`}
+                          accessibilityLabel={`${colorNames[color]} para ${["Precio y texto", "Suba", "Baja"][i]}`}
+                          accessibilityState={{
+                            selected: s[key].toUpperCase() === color,
+                          }}
                           onPress={() => change({ [key]: color })}
                           style={{
                             width: 44,
                             height: 44,
                             borderRadius: 17,
                             backgroundColor: "#" + color,
-                            borderWidth: s[key] === color ? 3 : 0,
+                            alignItems: "center",
+                            justifyContent: "center",
+                            borderWidth: s[key].toUpperCase() === color ? 3 : 0,
                             borderColor: "#FFFFFF",
                           }}
-                        />
+                        >
+                          <Text
+                            style={{
+                              color: "#080810",
+                              fontSize: 24,
+                              fontWeight: "900",
+                            }}
+                          >
+                            {s[key].toUpperCase() === color ? "✓" : ""}
+                          </Text>
+                        </Pressable>
                       ))}
                     </View>
                   </View>

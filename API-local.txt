@@ -32,3 +32,18 @@ Transferencia inactiva vence a los 30s. Dos slots conservan el archivo activo.
 CBA1: magic4 + fps1 + frames1 + reserved2; cuadros con longitud uint16 LE,
 bit15=raw RGB332 (2048bytes), sino pares run/color (run1..255, suma2048).
 Max40960bytes; fps1..10; frames1..50; duracion<=5s. Little-endian.
+
+
+Firmware 1.3.0 / animationApi 2:
+- CBQ1 playlist: magic 4 bytes, count u8 (1..8), then for each item
+  exposure seconds u16 LE (1..300), followed by a complete CBA1 clip.
+  Total container <=40960 bytes. CBA1 legacy clips still accepted.
+- POST animation/settings accepts onlyMedia boolean. true repeats the playlist
+  without ticker; false inserts the full playlist after rounds ticker cycles.
+- start is resumable for matching size/CRC/name, returns received offset.
+- chunk accepts retransmission of the most recently acknowledged block.
+- finish is idempotent for the last committed upload (until reboot).
+- Upload lease: 120 seconds. After expiry/reboot, send the same draft again.
+- Active slot remains untouched until full CRC and format validation.
+- GET info includes wifiRssi, freeHeap, refreshHz.
+- POST display-test (authenticated): fixed geometry for 20 seconds.

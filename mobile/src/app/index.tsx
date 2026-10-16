@@ -208,7 +208,7 @@ export default function Home() {
             <Text style={styles.note}>
               {canDiscover
                 ? "Buscá carteles cercanos o ingresá su dirección."
-                : "Expo Go: conectá por IP. La búsqueda automática está disponible en la app de desarrollo."}
+                : "Expo Go: conectá por IP. La búsqueda automática está disponible en la APK instalada."}
             </Text>
             {canDiscover && (
               <Button
