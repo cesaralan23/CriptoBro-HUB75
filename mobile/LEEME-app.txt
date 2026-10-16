@@ -51,3 +51,15 @@ npx expo export --platform android
 
 Fuentes: compact_font.h del proyecto y glcdfont.c de Adafruit GFX (fuente original
 de dominio publico). fonts.json contiene los mapas de pixeles para la vista previa.
+
+MEMES Y CLIPS (firmware 1.2.0)
+En el editor: GIF, videos y memes. Elegir archivo o plantilla, revisar la vista
+previa y tocar Enviar y reproducir. La carga activa la alternancia y guarda el
+clip sin recompilar ni publicar versiones. Video: importar desde Android.
+GIF y plantillas tambien funcionan en la demostracion web.
+Limites: archivo origen 20 MB; primeros 1-5 segundos; 64x32 RGB332, sin audio;
+8 cuadros/s objetivo, reducidos automaticamente si supera 40 KiB. Un clip
+activo, repetido 1-5 veces cada 1-5 vueltas completas de monedas. Mantiene
+proporcion con margenes negros. Modo texto no dispara la alternancia.
+El clip y sus ajustes sobreviven al apagado. Una carga incompleta conserva
+el clip anterior. No cambia las particiones ni borra Wi-Fi o vinculacion.

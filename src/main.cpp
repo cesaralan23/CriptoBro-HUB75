@@ -200,6 +200,8 @@ void drawFrame() {
     uint32_t page=(millis()/16000)%3;
     text(0,0,page==1?"CLAVE":"WIFI",cyan);
     marquee(18,page==0?"CriptoBro64":page==1?apPassword:"192.168.4.1",white);
+  } else if(animationPlaying&&drawAnimation()) {
+    // Decoded one frame from flash; animation playback never blocks quote retrieval.
   } else {
     char top[64],bottom[64];
     snprintf(top,sizeof(top),"%s %s %s",names[active],priceText,active==2?"USD":"USDT");
@@ -220,7 +222,7 @@ void drawFrame() {
     panel->fillRect(0,0,settings.inset,32,0);panel->fillRect(64-settings.inset,0,settings.inset,32,0);
     scrollX-=2;
     size_t length=settings.mode=="text"?settings.message.length():max(strlen(top),strlen(bottom));
-    if(scrollX < settings.inset-offset-int(length*(settings.font=="compact"?8:12))-8) {carouselIndex=(carouselIndex+1)%settings.count;active=settings.coins[carouselIndex];newQuote();}
+    if(scrollX < settings.inset-offset-int(length*(settings.font=="compact"?8:12))-8) {carouselIndex=(carouselIndex+1)%settings.count;active=settings.coins[carouselIndex];newQuote();if(settings.mode=="ticker"&&carouselIndex==0&&++animationRound>=animationRounds){animationRound=0;beginAnimation();}}
   }
   panel->flipDMABuffer();
 }
@@ -264,6 +266,6 @@ void loop() {
       serialCommand="";
     } else if(serialCommand.length()<64) serialCommand+=c;
   }
-  if(now-frameAt>=uint32_t(settings.interval)) {frameAt=now;drawFrame();}
+  if(now-frameAt>=(animationPlaying?1000UL/animationFps:uint32_t(settings.interval))) {frameAt=now;drawFrame();}
   delay(2);
 }

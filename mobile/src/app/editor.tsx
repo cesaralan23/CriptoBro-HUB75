@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { router } from "expo-router";
 import { ScrollView, Text, View, Switch, Pressable } from "react-native";
 import Slider from "@react-native-community/slider";
 import { Button, Card, Input, Label, styles, colors } from "../components/ui";
@@ -182,6 +183,7 @@ export default function Editor() {
         </Text>
       </View>
       <Matrix settings={s} quotes={session.quotes} playing={playing} />
+      <Button title="GIF, videos y memes" secondary onPress={() => router.push('/animations')} />
       <View style={styles.row}>
         <Button
           secondary

@@ -18,3 +18,17 @@ Rotacion y texto usan ajustes actuales sin detener la consulta independiente de 
 
 LAN de confianza; HTTP sin cifrar, no exponer a Internet. No se habilita CORS.
 La MAC identifica pero no autentica. Token aleatorio, no secreto incluido en firmware.
+
+Animaciones API 1 (firmware 1.2.0): todas las rutas requieren Bearer.
+GET /api/animation devuelve available/enabled/name/fps/frames/loops/rounds,
+maxBytes/storageReady/playing. GET /api/info anuncia animationApi:1.
+POST /api/animation/settings {enabled:bool,loops:1..5,rounds:1..5} persiste.
+POST /api/animation/play {} reproduce inmediatamente si esta habilitado.
+POST /api/animation/start {size:uint,crc:uint32,name:string<=64bytes} devuelve
+upload y chunkBytes:768. POST /api/animation/chunk {upload,offset,data:base64}
+requiere offsets consecutivos. POST /api/animation/finish {upload} valida
+longitud, CRC32 IEEE y cada cuadro antes de activar el nuevo archivo.
+Transferencia inactiva vence a los 30s. Dos slots conservan el archivo activo.
+CBA1: magic4 + fps1 + frames1 + reserved2; cuadros con longitud uint16 LE,
+bit15=raw RGB332 (2048bytes), sino pares run/color (run1..255, suma2048).
+Max40960bytes; fps1..10; frames1..50; duracion<=5s. Little-endian.

@@ -16,6 +16,7 @@ export default function Layout() {
       >
         <Stack.Screen name="index" options={{ title: "CriptoBro · Local" }} />
         <Stack.Screen name="editor" options={{ title: "Editor del cartel" }} />
+        <Stack.Screen name="animations" options={{ title: "Memes y clips" }} />
       </Stack>
     </SessionProvider>
   );
