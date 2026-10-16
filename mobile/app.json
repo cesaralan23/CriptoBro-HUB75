@@ -40,6 +40,13 @@
       ],
       "expo-video"
     ],
-    "scheme": "criptobro"
+    "scheme": "criptobro",
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "2680f485-0404-4a02-b013-e1274dc2e52f"
+      }
+    },
+    "owner": "cesaracosta"
   }
 }
