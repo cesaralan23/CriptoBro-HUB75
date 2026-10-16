@@ -16,6 +16,7 @@ uint8_t animationFps=8,animationFrames=0,animationIndex=0,animationRepeat=0;
 String animationName;
 File animationReader;
 bool animationUploading=false;
+const char *animationStoreStage="";
 size_t animationExpected=0,animationReceived=0;
 uint32_t animationCrc=0xffffffff,animationExpectedCrc=0,animationUploadAt=0;
 String animationUploadId,animationPendingName;
@@ -96,15 +97,26 @@ void cancelAnimationUpload(){animationUploading=false;animationUploadId="";anima
 // Do not retain a buffered FILE across network requests. Confirm each block
 // only after closing it and reading back the bytes from the inactive slot.
 bool storeAnimationBlock(const uint8_t *bytes,size_t count){
-  const char *path=animationPath(1-animationSlot);
-  File writer=SPIFFS.open(path,"a");
-  if(!writer||writer.size()!=animationReceived){writer.close();return false;}
-  size_t written=writer.write(bytes,count);writer.flush();writer.close();
-  if(written!=count)return false;
-  File verify=SPIFFS.open(path,"r");uint8_t saved[768];
-  bool ok=verify&&verify.size()==animationReceived+count&&verify.seek(animationReceived)
-    &&verify.read(saved,count)==count&&!memcmp(bytes,saved,count);
-  verify.close();return ok;
+  String path=String("/spiffs")+animationPath(1-animationSlot);
+  animationStoreStage="open";FILE *file=fopen(path.c_str(),"r+b");
+  if(!file)return false;
+  setvbuf(file,nullptr,_IONBF,0);
+  bool ok=false;
+  do {
+    animationStoreStage="length";
+    if(fseek(file,0,SEEK_END)||ftell(file)!=long(animationReceived))break;
+    animationStoreStage="write";errno=0;
+    if(fwrite(bytes,1,count,file)!=count)break;
+    animationStoreStage="flush";if(fflush(file))break;
+    animationStoreStage="seek";if(fseek(file,animationReceived,SEEK_SET))break;
+    uint8_t saved[768];animationStoreStage="read";
+    if(fread(saved,1,count,file)!=count)break;
+    animationStoreStage="compare";if(memcmp(bytes,saved,count))break;
+    ok=true;
+  }while(false);
+  int error=errno;int closed=fclose(file);
+  if(ok&&closed){animationStoreStage="close";return false;}
+  errno=error;return ok;
 }
 void setupAnimation(){
   animationStorage=SPIFFS.begin(false);
@@ -154,8 +166,8 @@ void setupAnimation(){
     if(offset!=animationReceived||animationReceived+count>animationExpected){apiError(409,"Posicion invalida");return;}
     errno=0;bool stored=storeAnimationBlock(bytes,count);int writeError=errno;
     if(!stored){
-      Serial.printf("[MEDIA] block offset=%u expected=%u errno=%d heap=%u\n",unsigned(animationReceived),unsigned(count),writeError,ESP.getFreeHeap());
-      cancelAnimationUpload();d.clear();d["error"]="Error al guardar; se conserva el contenido anterior";d["errno"]=writeError;jsonReply(500,d);return;
+      Serial.printf("[MEDIA] block stage=%s offset=%u expected=%u errno=%d heap=%u\n",animationStoreStage,unsigned(animationReceived),unsigned(count),writeError,ESP.getFreeHeap());
+      cancelAnimationUpload();d.clear();d["error"]="Error al guardar; se conserva el contenido anterior";d["errno"]=writeError;d["stage"]=animationStoreStage;jsonReply(500,d);return;
     }
     animationCrc=crcBytes(animationCrc,bytes,count);animationReceived+=count;animationUploadAt=millis();
     d.clear();d["received"]=animationReceived;jsonReply(200,d);
