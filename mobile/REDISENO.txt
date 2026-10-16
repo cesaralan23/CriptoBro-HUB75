@@ -21,3 +21,22 @@ Expo Go requiere Iniciar-app.cmd en esta PC, misma Wi-Fi y proyecto abierto.
 El perfil EAS preview genera una APK que contiene el codigo de la app y no
 requiere Metro ni esta computadora. El cartel sigue necesitando Internet para
 cotizaciones y OTA, y misma red local que el celular para los controles.
+
+ACTUALIZACION APP 1.2 / FIRMWARE 1.3
+Biblioteca ahora se organiza en Cola, Memes e Importar.
+- Cola persistida en el telefono, hasta 8 elementos y 40 KB totales.
+- Imagen fija, GIF o primeros 1..5 segundos de video; conversion a 64x32.
+- Exposicion independiente de 1..300 segundos, mover arriba/abajo y quitar.
+- Solo multimedia, o alternar cola completa con vueltas de cotizaciones.
+- Envio con 10 reintentos por peticion; bloques y cierre idempotentes.
+  Mantener la app abierta durante el envio. Tras reinicio o vencimiento de
+  transferencia, volver a enviar el borrador. No se borra la cola anterior
+  hasta validar completamente la nueva.
+- Color elegido identificado con nombre, borde y tilde visible.
+- Ayuda: patron fijo durante 20 segundos, lectura de RSSI y refresco real.
+- Firmware: Wi-Fi sin ahorro de energia, doble buffer, reloj 8MHz,
+  blanking de 6 ciclos y refresco minimo configurado en 120Hz.
+  El efecto visual depende del panel/cableado y debe comprobarse fisicamente.
+Validacion: 14 pruebas de app, TypeScript/lint, export Android en CI,
+4 pruebas de manifest y compilacion PlatformIO. Importacion PNG, orden,
+duracion y seleccion de color probados en navegador a ancho de celular.
