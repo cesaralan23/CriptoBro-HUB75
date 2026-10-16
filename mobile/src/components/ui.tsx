@@ -8,12 +8,12 @@ import {
   TextInputProps,
 } from "react-native";
 export const colors = {
-  bg: "#090F19",
-  card: "#131F30",
-  line: "#25354B",
+  bg: "#0C0D14",
+  card: "#191B29",
+  line: "#303348",
   text: "#F3F6FC",
-  muted: "#97ACC4",
-  accent: "#C2F970",
+  muted: "#ADB0C7",
+  accent: "#C2B0FF",
   orange: "#FFB45B",
 };
 export function Button({
@@ -71,19 +71,24 @@ export function Input(props: TextInputProps) {
 export const styles = StyleSheet.create({
   page: { flex: 1, backgroundColor: colors.bg },
   content: {
-    padding: 22,
+    padding: 20,
     gap: 18,
     paddingBottom: 50,
-    maxWidth: 680,
+    maxWidth: 760,
     width: "100%",
     alignSelf: "center",
   },
-  title: { fontSize: 32, fontWeight: "800", color: colors.text },
+  title: {
+    fontSize: 30,
+    fontWeight: "800",
+    letterSpacing: -1,
+    color: colors.text,
+  },
   subtitle: { fontSize: 15, lineHeight: 22, color: colors.muted },
   label: { fontSize: 16, fontWeight: "700", color: colors.text },
   card: {
     padding: 18,
-    borderRadius: 20,
+    borderRadius: 22,
     backgroundColor: colors.card,
     borderWidth: 1,
     borderColor: colors.line,

@@ -1,0 +1,23 @@
+REFERENCIAS DEL REDISENO - 2026-10-16
+PIXEL LED ART: referencia directa para HUB75 64x32; galeria y envio de GIF/texto.
+https://ledpixelart.com/pixelv2board/
+Divoom: separacion entre biblioteca, creacion y controles del dispositivo.
+https://divoom.com/en-au/blogs/app-guide/divoom-app-guide-pixel-art-widgets-smart-displays
+AWTRIX NG: acceso a pantallas y contenido organizado por aplicaciones.
+https://blueforcer.github.io/awtrix-ng/esp32/
+Son referencias de experiencia de uso. Divoom y AWTRIX no se presentan como
+controladores compatibles con nuestra placa. La app usa nuestra API local.
+
+IMPLEMENTADO
+Navegacion inferior: Pantallas, Disenar, Biblioteca, Ayuda.
+Editor por tareas: Contenido, Estilo, Ajustes. Guardado siempre visible.
+Cuatro estilos conservan brillo, monedas y mensaje. Deshacer hasta 20 cambios.
+Velocidad con presets Tranquilo/Normal/Rapido y deslizador con direccion natural.
+Biblioteca en grilla con buscador, importacion separada y secuencia de alternancia.
+Comprobacion de dispositivos guardados; error de red no fuerza revinculacion.
+
+EJECUCION
+Expo Go requiere Iniciar-app.cmd en esta PC, misma Wi-Fi y proyecto abierto.
+El perfil EAS preview genera una APK que contiene el codigo de la app y no
+requiere Metro ni esta computadora. El cartel sigue necesitando Internet para
+cotizaciones y OTA, y misma red local que el celular para los controles.
