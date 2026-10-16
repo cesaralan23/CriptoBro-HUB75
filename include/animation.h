@@ -1,9 +1,14 @@
 #pragma once
 #include <SPIFFS.h>
+#include <LittleFS.h>
 #include <mbedtls/base64.h>
 #include <errno.h>
 // Two slots preserve the active clip until a complete new file is validated.
 size_t ANIMATION_LIMIT=40960;
+fs::FS *mediaFS=&SPIFFS;
+bool mediaLittle=false;
+size_t mediaTotalBytes(){return mediaLittle?LittleFS.totalBytes():SPIFFS.totalBytes();}
+size_t mediaUsedBytes(){return mediaLittle?LittleFS.usedBytes():SPIFFS.usedBytes();}
 bool animationStorage=false,animationPlaying=false,animationEnabled=false,animationOnly=false;
 struct AnimationItem {uint32_t offset; uint16_t seconds; uint8_t fps,frames;};
 AnimationItem animationItems[32];
@@ -63,7 +68,7 @@ bool selectAnimationItem(uint8_t index){
 }
 void beginAnimation(){
   if(!animationEnabled||!animationCount||!animationStorage)return;
-  stopAnimation();animationReader=SPIFFS.open(animationPath(animationSlot),"r");
+  stopAnimation();animationReader=mediaFS->open(animationPath(animationSlot),"r");
   if(!animationReader||!selectAnimationItem(0)){stopAnimation();return;}
   animationPlaying=true;
 }
@@ -87,17 +92,18 @@ bool drawAnimation(){
   animationIndex++;return true;
 }
 void animationState(JsonObject o){
+  o["filesystem"]=mediaLittle?"LittleFS":"SPIFFS";
   o["count"]=animationCount;o["onlyMedia"]=animationOnly;o["playlist"]=animationPlaylist;o["current"]=animationItem;o["maxItems"]=32;o["uploadReceived"]=animationReceived;
   o["available"]=animationFrames>0;o["enabled"]=animationEnabled;o["name"]=animationName;
   o["fps"]=animationFps;o["frames"]=animationFrames;o["loops"]=animationLoops;o["rounds"]=animationRounds;
-  o["storageTotal"]=animationStorage?SPIFFS.totalBytes():0;o["storageUsed"]=animationStorage?SPIFFS.usedBytes():0;o["maxBytes"]=ANIMATION_LIMIT;o["storageReady"]=animationStorage;o["playing"]=animationPlaying;
+  o["storageTotal"]=animationStorage?mediaTotalBytes():0;o["storageUsed"]=animationStorage?mediaUsedBytes():0;o["maxBytes"]=ANIMATION_LIMIT;o["storageReady"]=animationStorage;o["playing"]=animationPlaying;
 }
 void sendAnimationState(){StaticJsonDocument<512>d;animationState(d.to<JsonObject>());jsonReply(200,d);}
 void cancelAnimationUpload(){animationUploading=false;animationUploadId="";animationExpected=0;}
 // Do not retain a buffered FILE across network requests. Confirm each block
 // only after closing it and reading back the bytes from the inactive slot.
 bool storeAnimationBlock(const uint8_t *bytes,size_t count){
-  String path=String("/spiffs")+animationPath(1-animationSlot);
+  String path=String("/media")+animationPath(1-animationSlot);
   animationStoreStage="open";FILE *file=fopen(path.c_str(),"r+b");
   if(!file)return false;
   setvbuf(file,nullptr,_IONBF,0);
@@ -119,14 +125,16 @@ bool storeAnimationBlock(const uint8_t *bytes,size_t count){
   errno=error;return ok;
 }
 void setupAnimation(){
-  animationStorage=SPIFFS.begin(false);
+  mediaLittle=LittleFS.begin(false,"/media",5,"spiffs");
+  mediaFS=mediaLittle?static_cast<fs::FS*>(&LittleFS):static_cast<fs::FS*>(&SPIFFS);
+  animationStorage=mediaLittle||SPIFFS.begin(false,"/media");
   // This partition was unused before 1.2. Never format automatically after first initialization.
-  if(!animationStorage&&!prefs.getBool("animInit",false)){if(SPIFFS.format())animationStorage=SPIFFS.begin(false);}
-  if(animationStorage){prefs.putBool("animInit",true);if(SPIFFS.totalBytes()>500000)ANIMATION_LIMIT=307200;}
+  if(!animationStorage&&!prefs.getBool("animInit",false)){if(SPIFFS.format())animationStorage=SPIFFS.begin(false,"/media");}
+  if(animationStorage){prefs.putBool("animInit",true);if(mediaTotalBytes()>500000)ANIMATION_LIMIT=307200;}
   animationSlot=prefs.getUChar("animSlot",0)==1?1:0;
   animationLoops=constrain(prefs.getUChar("animLoops",2),1,5);animationRounds=constrain(prefs.getUChar("animRounds",1),1,5);
   animationOnly=prefs.getBool("animOnly",false);animationEnabled=prefs.getBool("animEnabled",false);animationName=prefs.getString("animName","");
-  if(animationStorage){File f=SPIFFS.open(animationPath(animationSlot),"r");uint8_t fps,frames;if(validateAnimation(f,fps,frames,true)){animationFps=fps;animationFrames=frames;}f.close();}
+  if(animationStorage){File f=mediaFS->open(animationPath(animationSlot),"r");uint8_t fps,frames;if(validateAnimation(f,fps,frames,true)){animationFps=fps;animationFrames=frames;}f.close();}
   control.on("/api/animation",HTTP_GET,[]{if(authorized())sendAnimationState();});
   control.on("/api/animation/settings",HTTP_POST,[]{
     if(!authorized())return;DynamicJsonDocument d(256);if(!bodyJson(d))return;
@@ -147,9 +155,9 @@ void setupAnimation(){
     if(animationUploading&&animationExpected==size&&animationExpectedCrc==d["crc"].as<uint32_t>()&&animationPendingName==name){
       animationUploadAt=millis();d.clear();d["upload"]=animationUploadId;d["received"]=animationReceived;d["chunkBytes"]=768;jsonReply(200,d);return;
     }
-    cancelAnimationUpload();const char *path=animationPath(1-animationSlot);SPIFFS.remove(path);
-    if(SPIFFS.totalBytes()-SPIFFS.usedBytes()<size+8192){apiError(507,"Sin espacio para conservar el clip anterior");return;}
-    File writer=SPIFFS.open(path,"w");if(!writer){apiError(500,"No se pudo abrir el archivo");return;}writer.close();animationUploading=true;
+    cancelAnimationUpload();const char *path=animationPath(1-animationSlot);mediaFS->remove(path);
+    if(mediaTotalBytes()-mediaUsedBytes()<size+8192){apiError(507,"Sin espacio para conservar el clip anterior");return;}
+    File writer=mediaFS->open(path,"w");if(!writer){apiError(500,"No se pudo abrir el archivo");return;}writer.close();animationUploading=true;
     animationExpected=size;animationReceived=0;animationExpectedCrc=d["crc"];animationCrc=0xffffffff;
     animationPendingName=name;animationUploadAt=millis();animationUploadId=String(esp_random(),HEX)+String(esp_random(),HEX);
     d.clear();d["upload"]=animationUploadId;d["received"]=animationReceived;d["chunkBytes"]=768;jsonReply(200,d);
@@ -177,11 +185,45 @@ void setupAnimation(){
     if(animationCompletedUpload.length()&&d["upload"].as<String>()==animationCompletedUpload){sendAnimationState();return;}
     if(!animationUploading||d["upload"].as<String>()!=animationUploadId){apiError(409,"Transferencia invalida");return;}
     bool valid=animationReceived==animationExpected&&(animationCrc^0xffffffff)==animationExpectedCrc;
-    File f=SPIFFS.open(animationPath(1-animationSlot),"r");uint8_t fps=0,frames=0;valid=valid&&validateAnimation(f,fps,frames);f.close();
+    File f=mediaFS->open(animationPath(1-animationSlot),"r");uint8_t fps=0,frames=0;valid=valid&&validateAnimation(f,fps,frames);f.close();
     if(!valid){cancelAnimationUpload();apiError(400,"Archivo incompleto o invalido; se conserva el anterior");return;}
     int slot=1-animationSlot;if(prefs.putUChar("animSlot",slot)!=1){cancelAnimationUpload();apiError(500,"No se pudo activar");return;}
-    stopAnimation();File loaded=SPIFFS.open(animationPath(slot),"r");validateAnimation(loaded,fps,frames,true);loaded.close();
+    stopAnimation();File loaded=mediaFS->open(animationPath(slot),"r");validateAnimation(loaded,fps,frames,true);loaded.close();
     animationCompletedUpload=animationUploadId;animationSlot=slot;animationFps=fps;animationFrames=frames;animationName=animationPendingName;
     prefs.putString("animName",animationName);cancelAnimationUpload();sendAnimationState();
   });
 }
+
+// USB maintenance only. An external flash backup is required first.
+// Refuse large queues: the old file must remain entirely in RAM until verified.
+void migrateMediaToLittleFS(){
+  if(mediaLittle||!animationStorage||animationUploading||cloudUpdateProgress()>=0){Serial.println("[MEDIA] Migration refused: busy or already migrated");return;}
+  stopAnimation();File source=mediaFS->open(animationPath(animationSlot),"r");
+  size_t size=source?source.size():0;
+  if(!size||size>65536){source.close();Serial.println("[MEDIA] Migration refused: export media first");return;}
+  uint8_t *backup=static_cast<uint8_t*>(malloc(size));
+  if(!backup){source.close();Serial.println("[MEDIA] Migration refused: RAM");return;}
+  bool copied=source.read(backup,size)==size;source.close();
+  if(!copied){free(backup);Serial.println("[MEDIA] Migration refused: source read");return;}
+  uint32_t expected=crcBytes(0xffffffff,backup,size);
+  SPIFFS.end();animationStorage=false;
+  bool ready=LittleFS.format()&&LittleFS.begin(false,"/media",5,"spiffs");
+  if(ready){
+    mediaLittle=true;mediaFS=&LittleFS;
+    File dest=mediaFS->open(animationPath(animationSlot),"w");
+    ready=dest&&dest.write(backup,size)==size;dest.flush();dest.close();
+    File verify=mediaFS->open(animationPath(animationSlot),"r");uint8_t block[512];uint32_t crc=0xffffffff;size_t total=0;
+    while(verify&&total<size){size_t n=verify.read(block,min(sizeof(block),size-total));if(!n)break;crc=crcBytes(crc,block,n);total+=n;}
+    ready=ready&&total==size&&crc==expected;verify.close();
+  }
+  if(!ready){
+    LittleFS.end();mediaLittle=false;mediaFS=&SPIFFS;
+    if(SPIFFS.format()&&SPIFFS.begin(false,"/media")){
+      File restore=mediaFS->open(animationPath(animationSlot),"w");
+      animationStorage=restore&&restore.write(backup,size)==size;restore.flush();restore.close();
+    }
+    Serial.println("[MEDIA] Migration failed; check external backup before retry");
+  }else{animationStorage=true;Serial.printf("[MEDIA] LittleFS migration verified: %u bytes CRC=%08x total=%u\n",unsigned(size),unsigned(expected^0xffffffff),unsigned(mediaTotalBytes()));}
+  free(backup);
+}
+

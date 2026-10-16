@@ -274,6 +274,7 @@ void loop() {
     char c=Serial.read();
     if(c=='\n') {
       serialCommand.trim();
+      if(serialCommand=="MIGRATE_MEDIA_"+deviceId)migrateMediaToLittleFS();
       if(serialCommand=="WIFI"&&!portal.getConfigPortalActive()) portal.startConfigPortal("CriptoBro64",apPassword);
       if(serialCommand=="STATUS") Serial.printf("[STATUS] version=" FIRMWARE_VERSION " wifi=%d ip=%s heap=%u brightness=%u%% max=%u%% text=2px\n",WiFi.status(),WiFi.localIP().toString().c_str(),ESP.getFreeHeap(),brightnessPercent,MAX_BRIGHTNESS_PERCENT);
       serialCommand="";
