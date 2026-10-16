@@ -1,6 +1,7 @@
 #include <Arduino.h>
 #include <ArduinoJson.h>
 #include <WiFiClientSecure.h>
+#include "safe_tls.h"
 #include <HTTPClient.h>
 #include <Update.h>
 #include <esp_ota_ops.h>
@@ -21,7 +22,7 @@ static void setupHttp(HTTPClient &http,WiFiClientSecure &tls) {
   http.setUserAgent("CriptoBro64/" FIRMWARE_VERSION);
 }
 static bool download(const String &url,size_t expected,const String &sha) {
-  WiFiClientSecure tls; HTTPClient http; setupHttp(http,tls);
+  SafeWiFiClientSecure tls; HTTPClient http; setupHttp(http,tls);
   if(!http.begin(tls,url)) return false;
   int code=http.GET();
   if(code!=200 || http.getSize()!=int(expected)) {
@@ -68,7 +69,7 @@ void checkCloudUpdate() {
   size_t size=0;
   // Destroy manifest TLS buffers before allocating the firmware-download connection.
   {
-    WiFiClientSecure tls; HTTPClient http;setupHttp(http,tls);
+    SafeWiFiClientSecure tls; HTTPClient http;setupHttp(http,tls);
     if(!http.begin(tls,"https://github.com/" UPDATE_REPO "/releases/latest/download/manifest.json")) return;
     int code=http.GET();
     if(code!=200) {Serial.printf("[OTA] Manifiesto HTTP=%d (404: aun sin release)\n",code);http.end();return;}

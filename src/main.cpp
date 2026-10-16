@@ -2,6 +2,7 @@
 #include <WiFi.h>
 #include <WiFiManager.h>
 #include <WiFiClientSecure.h>
+#include "safe_tls.h"
 #include <HTTPClient.h>
 #include <ArduinoJson.h>
 #include <ESP32-HUB75-MatrixPanel-I2S-DMA.h>
@@ -42,7 +43,7 @@ void failure(int first,int last) {
   portEXIT_CRITICAL(&quoteLock);
 }
 bool request(const char *url,DynamicJsonDocument &doc) {
-  WiFiClientSecure tls;
+  SafeWiFiClientSecure tls;
   tls.setCACert(ROOT_CA);
   tls.setHandshakeTimeout(8);
   HTTPClient http;
@@ -275,6 +276,13 @@ void loop() {
     if(c=='\n') {
       serialCommand.trim();
       if(serialCommand=="MIGRATE_MEDIA_"+deviceId)migrateMediaToLittleFS();
+      if(serialCommand=="TEST_TLS_FILE"){
+        String path=String("/media")+animationPath(animationSlot);
+        FILE *f=fopen(path.c_str(),"rb");int fd=f?fileno(f):-1,first=f?fgetc(f):-1;
+        {SafeWiFiClientSecure tls;tls.stop();tls.stop();}
+        bool ok=f&&first>=0&&fseek(f,0,SEEK_SET)==0&&fgetc(f)==first;
+        if(f)fclose(f);Serial.printf("[MEDIA] TLS repeated stop and destructor: %s fd=%d\n",ok?"PASS":"FAIL",fd);
+      }
       if(serialCommand=="WIFI"&&!portal.getConfigPortalActive()) portal.startConfigPortal("CriptoBro64",apPassword);
       if(serialCommand=="STATUS") Serial.printf("[STATUS] version=" FIRMWARE_VERSION " wifi=%d ip=%s heap=%u brightness=%u%% max=%u%% text=2px\n",WiFi.status(),WiFi.localIP().toString().c_str(),ESP.getFreeHeap(),brightnessPercent,MAX_BRIGHTNESS_PERCENT);
       serialCommand="";

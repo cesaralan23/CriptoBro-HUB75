@@ -22,7 +22,6 @@ String animationName;
 File animationReader;
 bool animationUploading=false;
 const char *animationStoreStage="";
-extern volatile int mediaProtectedFd;
 size_t animationExpected=0,animationReceived=0;
 uint32_t animationCrc=0xffffffff,animationExpectedCrc=0,animationUploadAt=0;
 String animationUploadId,animationPendingName;
@@ -107,7 +106,6 @@ bool storeAnimationBlock(const uint8_t *bytes,size_t count){
   String path=String("/media")+animationPath(1-animationSlot);
   animationStoreStage="open";FILE *file=fopen(path.c_str(),"r+b");
   if(!file)return false;
-  mediaProtectedFd=fileno(file);
   setvbuf(file,nullptr,_IONBF,0);
   bool ok=false;
   do {
@@ -122,7 +120,7 @@ bool storeAnimationBlock(const uint8_t *bytes,size_t count){
     animationStoreStage="compare";if(memcmp(bytes,saved,count))break;
     ok=true;
   }while(false);
-  int error=errno;mediaProtectedFd=-1;int closed=fclose(file);
+  int error=errno;int closed=fclose(file);
   if(ok&&closed){animationStoreStage="close";return false;}
   errno=error;return ok;
 }
