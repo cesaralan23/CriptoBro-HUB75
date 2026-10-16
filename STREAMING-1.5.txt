@@ -1,4 +1,4 @@
-Streaming 1.5.0 y diagnóstico de ghosting
+Streaming 1.5.1 y diagnóstico de ghosting
 
 TRANSPORTE
 Se usa arduinoWebSockets 2.7.3 (RFC6455), no una implementación propia de TCP.
@@ -48,5 +48,38 @@ la recuperación automática. Estos comandos requieren acceso serie local.
 ENTREGA
 Los cambios de la app son JS y se publican mediante EAS Update para el runtime
 de la APK 1.3.0. No cambian módulos nativos ni permisos.
-Resultados en placa: completar tras las mediciones, sin confundir tests de
-software con una inspección visual del panel.
+VALIDACIÓN EN PLACA (2026-10-16)
+Firmware instalado y consultado por HTTP: 1.5.1; ID B0A732378074.
+La versión 1.5.0 condicionaba WiFi.reconnect() a WiFi.SSID().length().
+En Arduino-ESP32 2.0.17, SSID() consulta esp_wifi_sta_get_ap_info y devuelve
+vacío cuando está desconectado. 1.5.1 elimina esa condición incorrecta.
+Fuente: framework-arduinoespressif32/libraries/WiFi/src/WiFiSTA.cpp.
+
+Corte real con TEST_WIFI_DROP: el cartel recuperó su conexión y el cliente
+reanudó streaming sin RESET. La prueba terminó con 300 cuadros confirmados;
+los últimos 199 intervalos dieron 22.34 fps. No confundir ese tramo con el
+promedio de toda la prueba, que incluyó baja velocidad y desconexión.
+Prueba independiente posterior: 601 cuadros, cierre deliberado de socket,
+dos conexiones, 33.36 s totales y 20.91 fps en el tramo posterior al corte.
+El test utiliza el mismo streamQueue/openFrameChannel de la app, ejecutado
+con WebSocket en Node; no sustituye una prueba visual desde el Android.
+Se conservaron nombre, cantidad (3), enabled, onlyMedia, loops y rounds de
+la cola del usuario. El contenido en flash no fue reemplazado por las pruebas.
+El anuncio mDNS _criptobro._tcp.local. volvió a verificarse en 192.168.1.96:8080.
+
+Limitación: antes de la recuperación hubo tramos de 1..3 fps y latencia alta.
+No se certifican 30 fps constantes ni se considera explicada toda esa variación.
+El ahorro Wi-Fi estaba desactivado (esp_wifi_get_ps = 0). Se añadieron
+streamFrames, streamRendered y loopMaxMs a /api/info para seguir midiendo.
+Las confirmaciones de red no equivalen necesariamente a cuadros distintos
+mostrados: el render toma el último cuadro disponible y descarta atrasados.
+
+Ghosting: el usuario informó que invertir clkphase no cambió la copia tenue.
+Se restauró la fase original (1). No se da por resuelto el defecto visual.
+No aumentar brillo ni cambiar cableado/voltajes automáticamente para ocultarlo.
+
+App: 23 pruebas automatizadas, TypeScript y lint aprobados. EAS Update
+publicado en preview, grupo e04e03db-6ca8-44c4-bbb6-d48e5f2c1d0b,
+runtime 754f0c6f5b841ffc29d97e9834fe3618cdcb5181 (APK 1.3.0).
+Ayuda > Buscar actualización; cerrar completamente y volver a abrir.
+Reimportar GIF originales para aprovechar los cuadros que antes se descartaban.
