@@ -95,7 +95,7 @@ export default function Help() {
           ],
           [
             "¿Qué queda guardado?",
-            "La red Wi-Fi, el diseño guardado, el clip y su alternancia quedan en el cartel. El teléfono conserva la vinculación. Cerrar la app no detiene las cotizaciones ni la reproducción.",
+            "La red Wi-Fi, el diseño y la cola guardada quedan en el cartel y siguen funcionando al cerrar la app. El teléfono conserva la vinculación y el borrador. Streaming sí necesita la app abierta: al salir vuelve al contenido guardado.",
           ],
           [
             "¿Qué significan 24H y DIA?",
@@ -103,7 +103,7 @@ export default function Help() {
           ],
           [
             "Límites de esta pantalla",
-            "64 × 32 píxeles. Brillo máximo de 80%. Clips de hasta 5 segundos, sin sonido, convertidos a un máximo de 40 KB. Hasta 8 elementos por cola, con 1 a 300 segundos de exposición cada uno. Los 40 KB se comparten entre todos. La cola anterior se conserva hasta verificar la nueva.",
+            "64 × 32 píxeles. Brillo máximo de 80%. Hasta 32 elementos y fragmentos de 30 segundos, sin sonido; exposición de 1 a 300 segundos. La capacidad original es 40 KB por cola; con ampliación por USB, 300 KB. Biblioteca muestra el límite del equipo. Streaming repite la cola desde el teléfono sin ocupar ese espacio; requiere firmware 1.4.0 y la misma red Wi-Fi.",
           ],
         ].map(([title, description]) => (
           <Card key={title}>
