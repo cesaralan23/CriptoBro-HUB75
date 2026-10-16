@@ -2,7 +2,7 @@
 #include <WebSocketsServer.h>
 WebSocketsServer streamSocket(8081);
 int streamClient=-1;
-uint32_t streamAccepted=0;
+uint32_t streamAccepted=0,streamRendered=0,streamDrawnSequence=0;
 // Acknowledged whole frames, RAM only. No partially received frame is displayed.
 uint8_t streamPixels[2048];
 String streamSession;
@@ -11,6 +11,7 @@ bool streamHasFrame=false;
 bool streamActive(){return streamHasFrame&&millis()-streamAt<3000;}
 bool drawStream(){
   if(!streamActive())return false;
+  if(streamDrawnSequence!=streamSequence){streamDrawnSequence=streamSequence;streamRendered++;}
   for(int y=0;y<32;y++)for(int x=0;x<64;x++){
     uint8_t c=streamPixels[y*64+x];
     panel->drawPixel(x,y,panel->color565((c>>5)*255/7,((c>>2)&7)*255/7,(c&3)*85));
@@ -41,7 +42,7 @@ void setupStreaming(){
     if(streamActive()){apiError(409,"Ya hay una transmision activa");return;}
     if(streamClient>=0){streamSocket.disconnect(streamClient);streamClient=-1;}
     streamSession=String(esp_random(),HEX)+String(esp_random(),HEX);
-    streamHasFrame=false;streamSequence=0;
+    streamHasFrame=false;streamSequence=0;streamDrawnSequence=0;streamLoopMaxUs=0;
     StaticJsonDocument<192>d;d["session"]=streamSession;d["maxFps"]=30;d["wsPort"]=8081;jsonReply(200,d);
   });
   control.on("/api/stream/frame",HTTP_POST,[]{

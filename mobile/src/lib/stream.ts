@@ -11,6 +11,8 @@ export async function streamQueue(address: string, token: string, items: QueueIt
   if (!items.length || items.some(x => !x.clip.frames.length || x.seconds < 1 || x.seconds > 300 || !Number.isInteger(x.seconds)))
     throw new Error('Elegí una cola con duraciones de 1 a 300 segundos.');
   let channel: FrameChannel | undefined, session = '', deviceId = '', retries = 0;
+  const pending = new Set<Promise<void>>();
+  let frameError: unknown;
   async function reconnect() {
     while (!cancelled()) {
       try {
@@ -40,11 +42,18 @@ export async function streamQueue(address: string, token: string, items: QueueIt
       progress(`EN VIVO · ${item.clip.name} · hasta ${Math.min(30,item.clip.fps)} fps`);
       while (!cancelled() && now() - start < item.seconds * 1000) {
         const tick = now();
-        const frame = item.clip.frames[Math.floor((tick - start) * item.clip.fps / 1000) % item.clip.frames.length];
         try {
-          await channel!.send(frame); sent++;
+          if (pending.size >= 3) await Promise.race(pending);
+          if (frameError) throw frameError;
+          if (cancelled()) break;
+          const frame = item.clip.frames[Math.floor((now() - start) * item.clip.fps / 1000) % item.clip.frames.length];
+          const target = channel!;
+          const task = target.send(frame).then(() => { sent++; }, error => { frameError = error; })
+            .finally(() => { pending.delete(task); });
+          pending.add(task);
         } catch {
           channel?.close(); channel = undefined;
+          await Promise.all(pending); frameError = undefined;
           progress('Se cortó el Wi-Fi. Reconectando automáticamente…');
           await reconnect(); start = now(); reportAt = start; sent = 0; continue;
         }
@@ -58,6 +67,7 @@ export async function streamQueue(address: string, token: string, items: QueueIt
     }
   } finally {
     channel?.close();
+    await Promise.all(pending);
     if (session) await call(address, 'stream/stop', token, {session}).catch(() => undefined);
   }
 }

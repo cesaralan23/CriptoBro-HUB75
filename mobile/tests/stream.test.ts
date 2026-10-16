@@ -97,3 +97,13 @@ test('WebSocket packs binary frames, checks acknowledgements and rejects after c
   await channel.send(new Uint8Array(2048).fill(28));channel.close();
   await assert.rejects(channel.send(new Uint8Array(2048)),/desconectado/);
 });
+
+test('WebSocket bounds outstanding frames to three and clears all on disconnect',async()=>{
+  const wire:any={send(data:unknown){if(typeof data==='string')queueMicrotask(()=>wire.onmessage({data:'ready'}));},close(){wire.onclose?.();}};
+  const opened=openFrameChannel('192.168.1.2:8080',8081,'session',()=>wire as WebSocket);
+  wire.onopen();const channel=await opened,frame=new Uint8Array(2048);
+  const outstanding=Array.from({length:3},()=>channel.send(frame));
+  const settled=Promise.allSettled(outstanding);
+  await assert.rejects(channel.send(frame),/ventana llena/);
+  channel.close();assert.ok((await settled).every(r=>r.status==='rejected'));
+});

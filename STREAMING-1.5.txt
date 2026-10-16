@@ -10,7 +10,7 @@ POST /api/stream/start mantiene la autorización Bearer existente y devuelve
 una sesión temporal y wsPort=8081. El cliente abre ws://IP:8081/ y presenta
 la sesión como primer mensaje de texto. El servidor responde ready.
 Cada mensaje binario tiene 4 bytes de secuencia little-endian y 2048 bytes
-RGB332. La respuesta binaria confirma la secuencia. Sólo hay un cuadro pendiente;
+RGB332. La respuesta binaria confirma la secuencia. Hay como máximo tres cuadros en tránsito;
 no se acumulan imágenes atrasadas. La pantalla se dibuja cada 33 ms durante
 streaming. Objetivo máximo 30 fps, sujeto a señal Wi-Fi y rendimiento del móvil.
 El protocolo HTTP anterior sigue disponible para la app anterior.

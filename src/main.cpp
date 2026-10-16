@@ -26,7 +26,7 @@ Quote quotes[3];
 portMUX_TYPE quoteLock=portMUX_INITIALIZER_UNLOCKED;
 const char *names[]={"BTC","SOL","MSTR"};
 const char apPassword[]="HUB75B32";
-uint32_t frameAt=0, lostAt=0, wifiRetryAt=0;
+uint32_t frameAt=0, lostAt=0, wifiRetryAt=0, streamLoopMaxUs=0, streamLoopLastUs=0;
 int active=0, scrollX=64;
 Quote shown;
 char priceText[24]="...";
@@ -267,12 +267,13 @@ void setup() {
   newQuote();
 }
 void loop() {
+  uint32_t loopNow=micros();if(streamActive()&&streamLoopLastUs)streamLoopMaxUs=max(streamLoopMaxUs,loopNow-streamLoopLastUs);streamLoopLastUs=loopNow;
   portal.process();
   processControl();
   uint32_t now=millis();
   if(WiFi.status()!=WL_CONNECTED) {
     if(!lostAt) lostAt=now;
-    if(now-wifiRetryAt>=10000&&WiFi.SSID().length()){wifiRetryAt=now;WiFi.reconnect();}
+    if(now-wifiRetryAt>=10000){wifiRetryAt=now;WiFi.reconnect();}
     if(now-lostAt>30000&&!portal.getConfigPortalActive()) portal.startConfigPortal("CriptoBro64",apPassword);
   } else lostAt=0;
   while(Serial.available()) {
