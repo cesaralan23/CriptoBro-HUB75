@@ -213,7 +213,7 @@ function Library() {
         {section === "queue" && (
           <>
             <Card>
-              <Label>Reproducción en el cartel</Label>
+              <Label>Modo de la cola guardada</Label>
               <Segments
                 disabled={busy}
                 value={only ? "media" : "mixed"}
@@ -489,7 +489,7 @@ function Library() {
         </Text>
         <Button
           disabled={busy || !items.length || !loaded || used > limit || items.length > (active?.maxItems ?? 8)}
-          title={busy ? "Enviando…" : "Guardar cola y reproducir"}
+          title={streaming ? "Transmisión en curso" : busy ? "Enviando…" : "Guardar cola y reproducir"}
           onPress={() => void action(send)}
         />
         <Button secondary disabled={busy || !items.length || !device} title="Transmitir cola por Wi-Fi"
@@ -500,7 +500,7 @@ function Library() {
               setMessage("Transmisión detenida. El cartel vuelve a su contenido guardado.");
             } finally {setStreaming(false);}
           })} />
-        <Text style={styles.note}>Streaming no ocupa memoria del cartel. Necesita esta app abierta y el mismo Wi-Fi. Si se corta, vuelve al contenido guardado en 3 segundos.</Text>
+        <Text style={styles.note}>Streaming repite sólo esta cola, sin guardarla. Mantené la app abierta y el mismo Wi-Fi. Si se corta, vuelve al contenido guardado en 3 segundos.</Text>
         {busy && (
           <Pressable
             accessibilityRole="button"

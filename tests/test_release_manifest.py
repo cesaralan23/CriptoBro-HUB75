@@ -41,7 +41,7 @@ class ManifestTests(unittest.TestCase):
         self.assertIsNone(data)
 
     def test_rejects_oversized_image(self):
-        result,data=self.invoke(b'\xe9'+b'X'*0x1E0000)
+        result,data=self.invoke(b'\xe9'+b'X'*0x180000)
         self.assertNotEqual(result.returncode,0)
         self.assertIsNone(data)
 
