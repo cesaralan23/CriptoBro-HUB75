@@ -14,7 +14,8 @@ bool animationPlaylist=false;
 int animationSlot=0,animationLoops=2,animationRounds=1,animationRound=0;
 uint8_t animationFps=8,animationFrames=0,animationIndex=0,animationRepeat=0;
 String animationName;
-File animationReader,animationWriter;
+File animationReader;
+bool animationUploading=false;
 size_t animationExpected=0,animationReceived=0;
 uint32_t animationCrc=0xffffffff,animationExpectedCrc=0,animationUploadAt=0;
 String animationUploadId,animationPendingName;
@@ -91,7 +92,20 @@ void animationState(JsonObject o){
   o["storageTotal"]=animationStorage?SPIFFS.totalBytes():0;o["storageUsed"]=animationStorage?SPIFFS.usedBytes():0;o["maxBytes"]=ANIMATION_LIMIT;o["storageReady"]=animationStorage;o["playing"]=animationPlaying;
 }
 void sendAnimationState(){StaticJsonDocument<512>d;animationState(d.to<JsonObject>());jsonReply(200,d);}
-void cancelAnimationUpload(){animationWriter.close();animationUploadId="";animationExpected=0;}
+void cancelAnimationUpload(){animationUploading=false;animationUploadId="";animationExpected=0;}
+// Do not retain a buffered FILE across network requests. Confirm each block
+// only after closing it and reading back the bytes from the inactive slot.
+bool storeAnimationBlock(const uint8_t *bytes,size_t count){
+  const char *path=animationPath(1-animationSlot);
+  File writer=SPIFFS.open(path,"a");
+  if(!writer||writer.size()!=animationReceived){writer.close();return false;}
+  size_t written=writer.write(bytes,count);writer.flush();writer.close();
+  if(written!=count)return false;
+  File verify=SPIFFS.open(path,"r");uint8_t saved[768];
+  bool ok=verify&&verify.size()==animationReceived+count&&verify.seek(animationReceived)
+    &&verify.read(saved,count)==count&&!memcmp(bytes,saved,count);
+  verify.close();return ok;
+}
 void setupAnimation(){
   animationStorage=SPIFFS.begin(false);
   // This partition was unused before 1.2. Never format automatically after first initialization.
@@ -118,19 +132,19 @@ void setupAnimation(){
     DynamicJsonDocument d(512);if(!bodyJson(d))return;
     if(!d["size"].is<uint32_t>()||!d["crc"].is<uint32_t>()||!d["name"].is<const char*>()){apiError(400,"Datos invalidos");return;}
     size_t size=d["size"];String name=d["name"].as<String>();if(size<12||size>ANIMATION_LIMIT||name.length()>64){apiError(400,"Clip demasiado grande");return;}
-    if(animationWriter&&animationExpected==size&&animationExpectedCrc==d["crc"].as<uint32_t>()&&animationPendingName==name){
+    if(animationUploading&&animationExpected==size&&animationExpectedCrc==d["crc"].as<uint32_t>()&&animationPendingName==name){
       animationUploadAt=millis();d.clear();d["upload"]=animationUploadId;d["received"]=animationReceived;d["chunkBytes"]=768;jsonReply(200,d);return;
     }
     cancelAnimationUpload();const char *path=animationPath(1-animationSlot);SPIFFS.remove(path);
     if(SPIFFS.totalBytes()-SPIFFS.usedBytes()<size+8192){apiError(507,"Sin espacio para conservar el clip anterior");return;}
-    animationWriter=SPIFFS.open(path,"w");if(!animationWriter){apiError(500,"No se pudo abrir el archivo");return;}
+    File writer=SPIFFS.open(path,"w");if(!writer){apiError(500,"No se pudo abrir el archivo");return;}writer.close();animationUploading=true;
     animationExpected=size;animationReceived=0;animationExpectedCrc=d["crc"];animationCrc=0xffffffff;
     animationPendingName=name;animationUploadAt=millis();animationUploadId=String(esp_random(),HEX)+String(esp_random(),HEX);
     d.clear();d["upload"]=animationUploadId;d["received"]=animationReceived;d["chunkBytes"]=768;jsonReply(200,d);
   });
   control.on("/api/animation/chunk",HTTP_POST,[]{
     if(!authorized())return;DynamicJsonDocument d(2048);if(!bodyJson(d))return;
-    if(!animationWriter||d["upload"].as<String>()!=animationUploadId||!d["offset"].is<uint32_t>()){apiError(409,"Transferencia o posicion invalida");return;}
+    if(!animationUploading||d["upload"].as<String>()!=animationUploadId||!d["offset"].is<uint32_t>()){apiError(409,"Transferencia o posicion invalida");return;}
     String data=d["data"].as<String>();uint8_t bytes[768];size_t count=0;
     if(data.length()>1024||mbedtls_base64_decode(bytes,sizeof(bytes),&count,(const unsigned char*)data.c_str(),data.length())||!count){apiError(400,"Bloque invalido");return;}
     uint32_t offset=d["offset"];
@@ -138,10 +152,10 @@ void setupAnimation(){
       animationUploadAt=millis();d.clear();d["received"]=animationReceived;jsonReply(200,d);return;
     }
     if(offset!=animationReceived||animationReceived+count>animationExpected){apiError(409,"Posicion invalida");return;}
-    errno=0;size_t written=animationWriter.write(bytes,count);int writeError=errno;
-    if(written!=count){
-      Serial.printf("[MEDIA] write offset=%u written=%u expected=%u errno=%d heap=%u\n",unsigned(animationReceived),unsigned(written),unsigned(count),writeError,ESP.getFreeHeap());
-      cancelAnimationUpload();d.clear();d["error"]="Error al guardar; se conserva el contenido anterior";d["written"]=written;d["errno"]=writeError;d["heap"]=ESP.getFreeHeap();jsonReply(500,d);return;
+    errno=0;bool stored=storeAnimationBlock(bytes,count);int writeError=errno;
+    if(!stored){
+      Serial.printf("[MEDIA] block offset=%u expected=%u errno=%d heap=%u\n",unsigned(animationReceived),unsigned(count),writeError,ESP.getFreeHeap());
+      cancelAnimationUpload();d.clear();d["error"]="Error al guardar; se conserva el contenido anterior";d["errno"]=writeError;jsonReply(500,d);return;
     }
     animationCrc=crcBytes(animationCrc,bytes,count);animationReceived+=count;animationUploadAt=millis();
     d.clear();d["received"]=animationReceived;jsonReply(200,d);
@@ -149,8 +163,7 @@ void setupAnimation(){
   control.on("/api/animation/finish",HTTP_POST,[]{
     if(!authorized())return;DynamicJsonDocument d(256);if(!bodyJson(d))return;
     if(animationCompletedUpload.length()&&d["upload"].as<String>()==animationCompletedUpload){sendAnimationState();return;}
-    if(!animationWriter||d["upload"].as<String>()!=animationUploadId){apiError(409,"Transferencia invalida");return;}
-    animationWriter.close();
+    if(!animationUploading||d["upload"].as<String>()!=animationUploadId){apiError(409,"Transferencia invalida");return;}
     bool valid=animationReceived==animationExpected&&(animationCrc^0xffffffff)==animationExpectedCrc;
     File f=SPIFFS.open(animationPath(1-animationSlot),"r");uint8_t fps=0,frames=0;valid=valid&&validateAnimation(f,fps,frames);f.close();
     if(!valid){cancelAnimationUpload();apiError(400,"Archivo incompleto o invalido; se conserva el anterior");return;}

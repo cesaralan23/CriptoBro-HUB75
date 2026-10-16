@@ -80,6 +80,6 @@ void processControl(){
     if(MDNS.begin(host.c_str())){MDNS.addService("criptobro","tcp",8080);MDNS.addServiceTxt("criptobro","tcp","id",deviceId.c_str());MDNS.addServiceTxt("criptobro","tcp","api","1");mdnsStarted=true;}
   }
   if(WiFi.status()!=WL_CONNECTED&&mdnsStarted){MDNS.end();mdnsStarted=false;}
-  if(animationWriter&&millis()-animationUploadAt>120000)cancelAnimationUpload();
+  if(animationUploading&&millis()-animationUploadAt>120000)cancelAnimationUpload();
   control.handleClient();
 }
