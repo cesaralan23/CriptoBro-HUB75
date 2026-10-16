@@ -22,12 +22,12 @@ test("queue preserves ordering, exact exposure times and static image bytes", ()
   assert.throws(() => packQueue([{ id: "a", clip: a, seconds: 301 }]));
   assert.throws(() =>
     packQueue(
-      Array.from({ length: 9 }, () => ({ id: "a", clip: a, seconds: 1 })),
+      Array.from({ length: 33 }, () => ({ id: "a", clip: a, seconds: 1 })),
     ),
   );
   assert.throws(() =>
     packQueue([
-      { id: "a", clip: { ...a, bytes: new Uint8Array(40960) }, seconds: 1 },
+      { id: "a", clip: { ...a, bytes: new Uint8Array(307200) }, seconds: 1 },
     ]),
   );
 });

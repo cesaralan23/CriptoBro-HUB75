@@ -1,0 +1,50 @@
+CriptoBro firmware 1.4.0 / Android 1.3.0
+
+STREAMING
+Biblioteca > preparar cola > Transmitir cola por Wi-Fi.
+Hasta 32 elementos, fragmentos de hasta 30 segundos y exposición 1..300 segundos.
+El teléfono envía cuadros RGB332 de 2048 bytes, máximo 10 fps, con un único
+pedido pendiente. Descarta cuadros atrasados en vez de acumular retraso.
+No escribe los cuadros en flash. Al detener, salir de la app o perder Wi-Fi,
+el cartel vuelve al contenido guardado (timeout 3 segundos sin cuadros).
+Necesita la app en primer plano y ambos dispositivos en la misma red.
+No es duplicación de pantalla ni video con audio. Los archivos se convierten
+primero a 64x32. Archivo de origen máximo 20 MB, fragmento máximo 30 segundos.
+La cola completa en el teléfono puede superar el espacio disponible del cartel.
+
+ALMACENAMIENTO
+El firmware OTA mantiene las particiones instaladas y los archivos anteriores.
+Distribución original: SPIFFS 128 KiB, cola máxima 40 KiB.
+Distribución opcional partitions-media.csv: SPIFFS 896 KiB, cola máxima 300 KiB.
+Dos slots de archivos conservan la cola anterior hasta validar CRC y formato.
+Dos slots de firmware de 1536 KiB conservan OTA. Nunca publicar un binario
+mayor que 1536 KiB para equipos migrados. El actual cabe en ambos layouts.
+El firmware detecta la capacidad real al montar; la app consulta maxBytes.
+
+MIGRACION PENDIENTE DE USB
+No se aplicó al equipo B0A732378074: está conectado sólo por Wi-Fi.
+No ejecutar pio upload de esp32media a ciegas: cambia offsets y necesita
+respaldo/restauración de archivos y reinicialización de selección OTA.
+Procedimiento técnico para la próxima conexión:
+1. Identificar puerto, flash física, tabla instalada y equipo. Leer y verificar
+   un backup completo de flash fuera del repositorio (contiene claves Wi-Fi).
+2. Extraer los archivos de la SPIFFS original del respaldo. Conservar los dos
+   anim*.bin y validar sus hashes. Generar una nueva imagen SPIFFS de 896 KiB
+   con esos archivos. No copiar sin más la imagen SPIFFS de 128 KiB.
+3. Compilar pio run -e esp32media. Verificar tabla con tools/check_partitions.py.
+   Verificar firmware <1536 KiB. Mantener NVS 0x9000..0xdfff sin modificar.
+4. Grabar por USB bootloader, tabla, selección OTA inicial, firmware app0 e
+   imagen SPIFFS nueva. Verificar escrituras y arranque. Conservar el respaldo
+   completo para recuperación. No usar erase_flash ni autoformatear archivos.
+5. Confirmar Wi-Fi, vinculación, maxBytes=307200 y reproducción de cola previa.
+
+EAS UPDATE
+La APK Android 1.3.0 (versionCode 4) contiene expo-updates.
+Canal preview; runtimeVersion fingerprint evita aplicar código a nativos
+incompatibles. Al abrir descarga cambios compatibles y los usa al próximo
+inicio. Ayuda > Buscar actualización permite consultar manualmente.
+No se reinicia la app durante una carga o transmisión.
+Publicación desde mobile:
+npx eas-cli@latest update --channel preview --platform android --environment preview --message "Descripción del cambio" --non-interactive
+Cambiar módulos nativos, permisos o SDK exige nueva APK. Cambios compatibles
+de interfaz/lógica/assets pueden llegar por EAS Update.

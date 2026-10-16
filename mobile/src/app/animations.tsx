@@ -1,17 +1,22 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { ScrollView, Text, View, Pressable, Switch } from "react-native";
+import { ScrollView, Text, View, Pressable, Switch, AppState } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Hero, Badge, Segments } from "../components/studio";
 import { Button, Card, Label, Input, styles, colors } from "../components/ui";
 import ClipPreview from "../components/ClipPreview";
-import { Clip, meme, memeNames, MAX_BYTES } from "../lib/animation";
+import { Clip, meme, memeNames } from "../lib/animation";
 import { importMedia } from "../lib/importMedia";
 import { request } from "../lib/api";
 import { useSession } from "../lib/session";
 import { packQueue, QueueItem } from "../lib/playlist";
 import { retryTransfer, uploadQueue } from "../lib/upload";
 import { loadDraft, saveDraft } from "../lib/queueStorage";
+import { streamQueue } from "../lib/stream";
+import { useKeepAwake } from "expo-keep-awake";
+function KeepStreamingAwake(){useKeepAwake();return null;}
 type Player = {
+  maxBytes: number;
+  maxItems: number;
   available: boolean;
   enabled: boolean;
   onlyMedia: boolean;
@@ -40,6 +45,9 @@ function Library() {
   const [active, setActive] = useState<Player | null>(null);
   const [selected, setSelected] = useState<Clip | null>(null);
   const cancel = useRef(false);
+  const [streaming, setStreaming] = useState(false);
+  const limit = active?.maxBytes ?? 40960;
+  useEffect(() => {const sub = AppState.addEventListener("change", state => {if(streaming && state !== "active") cancel.current = true;});return () => sub.remove();}, [streaming]);
   const draftKey = device?.id || "demo";
   useEffect(() => {
     let live = true;
@@ -88,8 +96,8 @@ function Library() {
   const used = 5 + items.reduce((n, item) => n + 2 + item.clip.bytes.length, 0);
   const duration = items.reduce((n, item) => n + item.seconds, 0);
   function add(clip: Clip) {
-    if (items.length >= 8) {
-      setMessage("La cola admite hasta 8 elementos.");
+    if (items.length >= 32) {
+      setMessage("La cola admite hasta 32 elementos.");
       return;
     }
     const next = [
@@ -101,7 +109,7 @@ function Library() {
       },
     ];
     try {
-      packQueue(next);
+      packQueue(next, 10 * 1024 * 1024);
       setItems(next);
       setSection("queue");
       setMessage("Agregado a tu cola. Todavía no se envió al cartel.");
@@ -151,7 +159,7 @@ function Library() {
       setMessage("Vinculá una pantalla desde Pantallas para enviar la cola.");
       return;
     }
-    const data = packQueue(items);
+    const data = packQueue(items, limit);
     await uploadQueue(
       device.address,
       token,
@@ -169,6 +177,7 @@ function Library() {
   }
   return (
     <SafeAreaView style={styles.page} edges={["top"]}>
+      {streaming && <KeepStreamingAwake />}
       <ScrollView
         contentContainerStyle={styles.content}
         keyboardShouldPersistTaps="handled"
@@ -365,7 +374,7 @@ function Library() {
             )}
             <Card>
               <Label>
-                {items.length}/8 elementos · {duration} s por vuelta
+                {items.length}/32 elementos · {duration} s por vuelta
               </Label>
               <View
                 style={{
@@ -377,14 +386,14 @@ function Library() {
                 <View
                   style={{
                     height: 7,
-                    width: `${Math.min(100, (used * 100) / MAX_BYTES)}%`,
+                    width: `${Math.min(100, (used * 100) / limit)}%`,
                     backgroundColor: colors.accent,
                     borderRadius: 4,
                   }}
                 />
               </View>
               <Text style={styles.note}>
-                {(used / 1024).toFixed(1)} / 40 KB. La duración de exposición no
+                {(used / 1024).toFixed(1)} / {Math.floor(limit / 1024)} KB guardables en este cartel. La duración de exposición no
                 aumenta el tamaño del archivo.
               </Text>
               {active?.available && (
@@ -434,7 +443,7 @@ function Library() {
             </Text>
             <Label>Fragmento de GIF / video</Label>
             <View style={styles.row}>
-              {[1, 2, 3, 4, 5].map((n) => (
+              {[3, 5, 10, 20, 30].map((n) => (
                 <Button
                   key={n}
                   title={`${n}s`}
@@ -479,10 +488,19 @@ function Library() {
             : `${items.length} elementos preparados · ${device?.name || "Sin pantalla vinculada"}`}
         </Text>
         <Button
-          disabled={busy || !items.length || !loaded}
+          disabled={busy || !items.length || !loaded || used > limit || items.length > (active?.maxItems ?? 8)}
           title={busy ? "Enviando…" : "Guardar cola y reproducir"}
           onPress={() => void action(send)}
         />
+        <Button secondary disabled={busy || !items.length || !device} title="Transmitir cola por Wi-Fi"
+          onPress={() => void action(async () => {
+            if(!device)return;
+            setStreaming(true);
+            try {await streamQueue(device.address, token, items, () => cancel.current, setMessage);
+              setMessage("Transmisión detenida. El cartel vuelve a su contenido guardado.");
+            } finally {setStreaming(false);}
+          })} />
+        <Text style={styles.note}>Streaming no ocupa memoria del cartel. Necesita esta app abierta y el mismo Wi-Fi. Si se corta, vuelve al contenido guardado en 3 segundos.</Text>
         {busy && (
           <Pressable
             accessibilityRole="button"
@@ -491,7 +509,7 @@ function Library() {
             }}
           >
             <Text style={[styles.label, { textAlign: "center", padding: 8 }]}>
-              Cancelar envío
+              {streaming ? "Detener transmisión" : "Cancelar envío"}
             </Text>
           </Pressable>
         )}

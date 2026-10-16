@@ -30,7 +30,7 @@ export async function loadDraft(id: string): Promise<QueueItem[]> {
       : "[]"
     : memory.get(id) || "[]";
   return JSON.parse(json)
-    .slice(0, 8)
+    .slice(0, 32)
     .map(
       (x: {
         id: string;

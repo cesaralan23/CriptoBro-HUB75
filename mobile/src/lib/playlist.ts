@@ -1,12 +1,12 @@
 import { Clip, MAX_BYTES } from "./animation";
 export type QueueItem = { id: string; clip: Clip; seconds: number };
-export function packQueue(items: QueueItem[]) {
-  if (!items.length || items.length > 8)
-    throw new Error("Elegí entre 1 y 8 elementos.");
+export function packQueue(items: QueueItem[], maxBytes = MAX_BYTES) {
+  if (!items.length || items.length > 32)
+    throw new Error("Elegí entre 1 y 32 elementos.");
   const size = 5 + items.reduce((n, item) => n + 2 + item.clip.bytes.length, 0);
-  if (size > MAX_BYTES)
+  if (size > maxBytes)
     throw new Error(
-      "La cola supera 40 KB. Quitá elementos o importá fragmentos más cortos.",
+      `La cola supera ${Math.floor(maxBytes / 1024)} KB. Usá streaming o quitá elementos.`,
     );
   const data = new Uint8Array(size);
   data.set([67, 66, 81, 49, items.length]);

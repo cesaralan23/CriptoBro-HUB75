@@ -6,6 +6,7 @@ import { router } from "expo-router";
 import { Button, Card, Label, styles } from "../components/ui";
 import { Hero, Badge } from "../components/studio";
 import { useSession } from "../lib/session";
+import UpdateCard from "../components/UpdateCard";
 export default function Help() {
   const [diagnostic, setDiagnostic] = useState("");
   const { device, demo, token } = useSession();
@@ -17,6 +18,7 @@ export default function Help() {
           title="Tu cartel, sin vueltas."
           description="Conexión, guardado y reproducción: lo esencial para manejarlo con confianza."
         />
+        <UpdateCard />
         <Card>
           <Badge>{demo ? "MODO DEMO" : "PANTALLA VINCULADA"}</Badge>
           <Label>{device?.name || "Todavía no elegiste un cartel"}</Label>

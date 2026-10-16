@@ -22,6 +22,7 @@ bool bodyJson(JsonDocument &d){
   return true;
 }
 #include "animation.h"
+#include "streaming.h"
 void sendState(){
   DynamicJsonDocument d(3072);encodeSettings(d.createNestedObject("settings"),settings);
   JsonArray a=d.createNestedArray("quotes");Quote copy[3];
@@ -37,7 +38,7 @@ void setupControl(){
   if(saved.length()&&!deserializeJson(d,saved)&&decodeSettings(d.as<JsonObject>(),candidate))settings=candidate;
   setBrightnessPercent(settings.brightness);active=settings.coins[0];
   const char *headers[]={"Authorization"};control.collectHeaders(headers,1);
-  control.on("/api/info",HTTP_GET,[]{StaticJsonDocument<512>d;d["id"]=deviceId;d["name"]=settings.name;d["version"]=FIRMWARE_VERSION;d["api"]=1;d["width"]=64;d["height"]=32;d["paired"]=accessToken.length()>0;d["animationApi"]=2;d["wifiRssi"]=WiFi.RSSI();d["freeHeap"]=ESP.getFreeHeap();d["refreshHz"]=panel->calculated_refresh_rate;jsonReply(200,d);});
+  control.on("/api/info",HTTP_GET,[]{StaticJsonDocument<512>d;d["id"]=deviceId;d["name"]=settings.name;d["version"]=FIRMWARE_VERSION;d["api"]=1;d["width"]=64;d["height"]=32;d["paired"]=accessToken.length()>0;d["animationApi"]=3;d["streamApi"]=1;d["flashBytes"]=ESP.getFlashChipSize();d["mediaMaxBytes"]=ANIMATION_LIMIT;d["wifiRssi"]=WiFi.RSSI();d["freeHeap"]=ESP.getFreeHeap();d["refreshHz"]=panel->calculated_refresh_rate;jsonReply(200,d);});
   control.on("/api/pair/start",HTTP_POST,[]{
     if(portal.getConfigPortalActive()||cloudUpdateProgress()>=0){apiError(409,"Espera a que termine la configuracion o actualizacion");return;}
     if(pairStarted&&millis()-pairStarted<60000){apiError(429,"Ya hay un codigo en pantalla; espera un minuto para otro");return;}
@@ -70,7 +71,7 @@ void setupControl(){
   });
   control.on("/api/identify",HTTP_POST,[]{if(!authorized())return;identifyUntil=millis()+5000;control.send(200,"application/json","{\"ok\":true}");});
   control.on("/api/display-test",HTTP_POST,[]{if(!authorized())return;displayTestUntil=millis()+20000;control.send(200,"application/json","{\"seconds\":20}");});
-  setupAnimation();
+  setupAnimation();setupStreaming();
   control.onNotFound([]{apiError(404,"Ruta desconocida");});control.begin();
 }
 void processControl(){

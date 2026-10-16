@@ -1,5 +1,5 @@
 #pragma once
-#define FIRMWARE_VERSION "1.3.1"
-#define FIRMWARE_VERSION_CODE 1003001
+#define FIRMWARE_VERSION "1.4.0"
+#define FIRMWARE_VERSION_CODE 1004000
 #define FIRMWARE_TARGET "esp32-hub75-64x32-faniot-v1"
 #define UPDATE_REPO "cesaralan23/CriptoBro-HUB75"

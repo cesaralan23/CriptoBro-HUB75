@@ -38,7 +38,7 @@ def main():
     if not args.binary:
         parser.error('--binary is required')
     binary = args.binary.read_bytes()
-    if not 10000 < len(binary) <= 0x1E0000 or binary[0] != 0xE9:
+    if not 10000 < len(binary) <= 0x180000 or binary[0] != 0xE9:
         raise ValueError('Not a compatible ESP32 app image, or OTA slot exceeded')
     manifest = dict(version=version, version_code=code, target=target,
                     size=len(binary), sha256=hashlib.sha256(binary).hexdigest(),

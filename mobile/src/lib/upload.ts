@@ -9,7 +9,7 @@ export async function retryTransfer<T>(
 ) {
   for (let attempt = 0; ; attempt++) {
     if (cancelled())
-      throw new Error("Envío cancelado. La cola anterior sigue en el cartel.");
+      throw new Error("Envío cancelado. Consultá el cartel para confirmar el contenido activo.");
     try {
       return await work();
     } catch (error) {

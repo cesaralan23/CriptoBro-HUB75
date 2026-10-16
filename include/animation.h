@@ -2,10 +2,10 @@
 #include <SPIFFS.h>
 #include <mbedtls/base64.h>
 // Two slots preserve the active clip until a complete new file is validated.
-constexpr size_t ANIMATION_LIMIT=40960;
+size_t ANIMATION_LIMIT=40960;
 bool animationStorage=false,animationPlaying=false,animationEnabled=false,animationOnly=false;
 struct AnimationItem {uint32_t offset; uint16_t seconds; uint8_t fps,frames;};
-AnimationItem animationItems[8];
+AnimationItem animationItems[32];
 uint8_t animationCount=0,animationItem=0;
 uint32_t animationItemAt=0;
 String animationCompletedUpload;
@@ -31,16 +31,16 @@ bool readAnimationFrame(File &f,uint8_t *out){
 bool readClip(File &f,AnimationItem &item){
   uint8_t h[8];if(f.read(h,8)!=8||memcmp(h,"CBA1",4)||h[6]||h[7])return false;
   item.fps=h[4];item.frames=h[5];item.offset=f.position();
-  if(item.fps<1||item.fps>10||item.frames<1||item.frames>50||item.frames>item.fps*5)return false;
+  if(item.fps<1||item.fps>10||item.frames<1||item.frames>item.fps*30)return false;
   for(int i=0;i<item.frames;i++)if(!readAnimationFrame(f,animationPixels))return false;
   return true;
 }
 bool validateAnimation(File &f,uint8_t &fps,uint8_t &frames,bool activate=false){
   if(!f||f.size()<12||f.size()>ANIMATION_LIMIT)return false;
   uint8_t magic[5];if(f.read(magic,5)!=5)return false;f.seek(0);
-  AnimationItem items[8];uint8_t count=1;bool playlist=!memcmp(magic,"CBQ1",4);
+  AnimationItem items[32];uint8_t count=1;bool playlist=!memcmp(magic,"CBQ1",4);
   if(playlist){
-    count=magic[4];if(!count||count>8)return false;f.seek(5);
+    count=magic[4];if(!count||count>32)return false;f.seek(5);
     for(int i=0;i<count;i++){
       int lo=f.read(),hi=f.read();if(lo<0||hi<0)return false;
       items[i].seconds=lo|(hi<<8);if(items[i].seconds<1||items[i].seconds>300)return false;
@@ -84,10 +84,10 @@ bool drawAnimation(){
   animationIndex++;return true;
 }
 void animationState(JsonObject o){
-  o["count"]=animationCount;o["onlyMedia"]=animationOnly;o["playlist"]=animationPlaylist;o["current"]=animationItem;o["maxItems"]=8;o["uploadReceived"]=animationReceived;
+  o["count"]=animationCount;o["onlyMedia"]=animationOnly;o["playlist"]=animationPlaylist;o["current"]=animationItem;o["maxItems"]=32;o["uploadReceived"]=animationReceived;
   o["available"]=animationFrames>0;o["enabled"]=animationEnabled;o["name"]=animationName;
   o["fps"]=animationFps;o["frames"]=animationFrames;o["loops"]=animationLoops;o["rounds"]=animationRounds;
-  o["maxBytes"]=ANIMATION_LIMIT;o["storageReady"]=animationStorage;o["playing"]=animationPlaying;
+  o["storageTotal"]=animationStorage?SPIFFS.totalBytes():0;o["storageUsed"]=animationStorage?SPIFFS.usedBytes():0;o["maxBytes"]=ANIMATION_LIMIT;o["storageReady"]=animationStorage;o["playing"]=animationPlaying;
 }
 void sendAnimationState(){StaticJsonDocument<512>d;animationState(d.to<JsonObject>());jsonReply(200,d);}
 void cancelAnimationUpload(){animationWriter.close();animationUploadId="";animationExpected=0;}
@@ -95,7 +95,7 @@ void setupAnimation(){
   animationStorage=SPIFFS.begin(false);
   // This partition was unused before 1.2. Never format automatically after first initialization.
   if(!animationStorage&&!prefs.getBool("animInit",false)){if(SPIFFS.format())animationStorage=SPIFFS.begin(false);}
-  if(animationStorage)prefs.putBool("animInit",true);
+  if(animationStorage){prefs.putBool("animInit",true);if(SPIFFS.totalBytes()>500000)ANIMATION_LIMIT=307200;}
   animationSlot=prefs.getUChar("animSlot",0)==1?1:0;
   animationLoops=constrain(prefs.getUChar("animLoops",2),1,5);animationRounds=constrain(prefs.getUChar("animRounds",1),1,5);
   animationOnly=prefs.getBool("animOnly",false);animationEnabled=prefs.getBool("animEnabled",false);animationName=prefs.getString("animName","");

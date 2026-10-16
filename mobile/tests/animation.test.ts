@@ -20,13 +20,13 @@ test('CBA1 round trip covers raw, RLE and 255-pixel runs', () => {
   assert.deepEqual(unpack(encode(frames,8)),frames.map(f=>[...f]));
   assert.equal(crc32(new TextEncoder().encode('123456789')),0xcbf43926);
   assert.throws(()=>encode([new Uint8Array(1)],8));
-  assert.throws(()=>encode(Array(41).fill(frames[0]),8));
+  assert.throws(()=>encode(Array(241).fill(frames[0]),8));
 });
 test('complex five-second clips fit flash without changing color pixels', () => {
   const frames=Array.from({length:40},(_,j)=>Uint8Array.from({length:2048},(_,i)=>(i+j)%256));
   const clip=fitClip('noise',frames,8);
-  assert.ok(clip.bytes.length<=40960); assert.equal(clip.frames.length/clip.fps,5);
-  assert.equal(clip.fps,3); unpack(clip.bytes);
+  assert.ok(clip.bytes.length<=307200); assert.equal(clip.frames.length/clip.fps,5);
+  assert.equal(clip.fps,8); unpack(clip.bytes);
 });
 test('all meme templates are valid, animated and fit the panel', () => {
   for (const name of memeNames) { const c=meme(name); assert.ok(c.bytes.length<=40960); unpack(c.bytes); assert.ok(c.frames.some(f=>!f.every((p,i)=>p===c.frames[0][i]))); }

@@ -1,8 +1,8 @@
 import fonts from './fonts.json';
 export type Clip = { name: string; fps: number; frames: Uint8Array[]; bytes: Uint8Array };
-export const MAX_BYTES = 40960;
+export const MAX_BYTES = 307200;
 export function encode(frames: Uint8Array[], fps: number): Uint8Array {
-  if (!Number.isInteger(fps) || fps < 1 || fps > 10 || !frames.length || frames.length > fps * 5) throw new Error('Duración máxima: 5 segundos');
+  if (!Number.isInteger(fps) || fps < 1 || fps > 10 || !frames.length || frames.length > Math.min(255, fps * 30)) throw new Error('Duración máxima: 30 segundos (255 cuadros)');
   const out = [67, 66, 65, 49, fps, frames.length, 0, 0];
   for (const frame of frames) {
     if (frame.length !== 2048) throw new Error('Resolución inválida');

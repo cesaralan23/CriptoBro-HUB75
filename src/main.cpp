@@ -203,6 +203,8 @@ void drawFrame() {
     if(phase<3){for(int y=1;y<32;y+=4)panel->drawFastHLine(2,y,60,c[phase]);}
     else if(phase==3){for(int x=2;x<62;x+=4)panel->drawFastVLine(x,2,28,white);}
     else {panel->drawRect(2,2,60,28,white);panel->drawLine(2,2,61,29,green);}
+  } else if(drawStream()) {
+    // Complete authenticated frame from RAM.
   } else if(portal.getConfigPortalActive()&&!animationCount) {
     uint32_t page=(millis()/16000)%3;
     text(0,0,page==1?"CLAVE":"WIFI",cyan);
@@ -277,6 +279,6 @@ void loop() {
       serialCommand="";
     } else if(serialCommand.length()<64) serialCommand+=c;
   }
-  if(now-frameAt>=(animationPlaying?1000UL/animationFps:uint32_t(settings.interval))) {frameAt=now;drawFrame();}
+  if(now-frameAt>=(streamActive()?50UL:(animationPlaying?1000UL/animationFps:uint32_t(settings.interval)))) {frameAt=now;drawFrame();}
   delay(2);
 }
