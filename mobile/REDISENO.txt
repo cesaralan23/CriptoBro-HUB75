@@ -35,7 +35,7 @@ Biblioteca ahora se organiza en Cola, Memes e Importar.
 - Color elegido identificado con nombre, borde y tilde visible.
 - Ayuda: patron fijo durante 20 segundos, lectura de RSSI y refresco real.
 - Firmware: Wi-Fi sin ahorro de energia, doble buffer, reloj 8MHz,
-  blanking de 6 ciclos y refresco minimo configurado en 120Hz.
+  blanking de 8 ciclos (1.3.1) y refresco minimo configurado en 120Hz.
   El efecto visual depende del panel/cableado y debe comprobarse fisicamente.
 Validacion: 14 pruebas de app, TypeScript/lint, export Android en CI,
 4 pruebas de manifest y compilacion PlatformIO. Importacion PNG, orden,

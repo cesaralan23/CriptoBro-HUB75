@@ -240,7 +240,7 @@ void setup() {
   config.double_buff=true;
   // Conservative row-switch blanking, explicit low clock and sufficient PWM refresh.
   config.i2sspeed=HUB75_I2S_CFG::HZ_8M;
-  config.latch_blanking=6;
+  config.latch_blanking=8;
   config.min_refresh_rate=120;
   panel=new MatrixPanel_I2S_DMA(config);
   if(!panel->begin()) {Serial.println("[ERROR] DMA");while(true) delay(1000);}
