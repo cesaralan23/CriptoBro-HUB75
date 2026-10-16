@@ -23,6 +23,11 @@ export async function importMedia(seconds: number, progress: (text: string) => v
     const player = createVideoPlayer(null);
     try {
       await player.replaceAsync({uri: asset.uri});
+      // Android replaceAsync resolves after prepare(), before metadata is ready.
+      const deadline = Date.now() + 15000;
+      while (player.duration <= 0 && player.status !== 'error' && Date.now() < deadline) {
+        await new Promise(resolve => setTimeout(resolve, 100));
+      }
       const duration = Math.min(seconds, player.duration);
       if (!Number.isFinite(duration) || duration <= 0) throw new Error('No se pudo leer este video. Probá un MP4 con H.264.');
       const frames: Uint8Array[] = [], count = Math.max(1, Math.floor(duration * 8));
