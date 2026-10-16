@@ -25,6 +25,8 @@ export default function Animations() {
   }
   async function upload() {
     if (!device) { setMessage('Vinculá un cartel para enviar. La vista previa funciona en demo.'); return; }
+    const info = await request<{animationApi?: number; version: string}>(device.address, 'info');
+    if (info.animationApi !== 1) throw new Error(`El cartel todavía tiene firmware ${info.version}. Necesita 1.2.0: dejalo conectado a Internet para que se actualice por OTA y volvé a enviar.`);
     const transfer = await request<{upload: string}>(device.address, 'animation/start', token, {size: clip.bytes.length, crc: crc32(clip.bytes), name: clip.name});
     for (let offset = 0; offset < clip.bytes.length; offset += 768) {
       await request(device.address, 'animation/chunk', token, {upload: transfer.upload, offset, data: fromByteArray(clip.bytes.slice(offset, offset + 768))});
