@@ -1,7 +1,7 @@
 import { File, Paths } from "expo-file-system";
 import { Platform } from "react-native";
 import { QueueItem } from "./playlist";
-import { encode } from "./animation";
+import { fitClip } from "./animation";
 const memory = new Map<string, string>();
 export async function saveDraft(id: string, items: QueueItem[]) {
   const json = JSON.stringify(
@@ -43,12 +43,7 @@ export async function loadDraft(id: string): Promise<QueueItem[]> {
         return {
           id: x.id,
           seconds: x.seconds,
-          clip: {
-            name: x.name,
-            fps: x.fps,
-            frames,
-            bytes: encode(frames, x.fps),
-          },
+          clip: fitClip(x.name, frames, x.fps),
         };
       },
     );

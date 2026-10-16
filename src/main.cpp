@@ -26,11 +26,12 @@ Quote quotes[3];
 portMUX_TYPE quoteLock=portMUX_INITIALIZER_UNLOCKED;
 const char *names[]={"BTC","SOL","MSTR"};
 const char apPassword[]="HUB75B32";
-uint32_t frameAt=0, lostAt=0;
+uint32_t frameAt=0, lostAt=0, wifiRetryAt=0;
 int active=0, scrollX=64;
 Quote shown;
 char priceText[24]="...";
 String serialCommand;
+bool panelClockPhase=true;
 uint16_t white,green,red,orange,cyan,purple,grey;
 
 void publish(int index,const Quote &q) {
@@ -240,6 +241,8 @@ void setup() {
   Serial.begin(115200);
   HUB75_I2S_CFG::i2s_pins pins={25,26,27,14,13,32,23,19,18,33,-1,21,4,22};
   HUB75_I2S_CFG config(64,32,1,pins);
+  Preferences timing;timing.begin("cbtiming",true);panelClockPhase=timing.getBool("phase",true);timing.end();
+  config.clkphase=panelClockPhase;
   config.double_buff=true;
   // Conservative row-switch blanking, explicit low clock and sufficient PWM refresh.
   config.i2sspeed=HUB75_I2S_CFG::HZ_8M;
@@ -269,6 +272,7 @@ void loop() {
   uint32_t now=millis();
   if(WiFi.status()!=WL_CONNECTED) {
     if(!lostAt) lostAt=now;
+    if(now-wifiRetryAt>=10000&&WiFi.SSID().length()){wifiRetryAt=now;WiFi.reconnect();}
     if(now-lostAt>30000&&!portal.getConfigPortalActive()) portal.startConfigPortal("CriptoBro64",apPassword);
   } else lostAt=0;
   while(Serial.available()) {
@@ -276,6 +280,10 @@ void loop() {
     if(c=='\n') {
       serialCommand.trim();
       if(serialCommand=="MIGRATE_MEDIA_"+deviceId)migrateMediaToLittleFS();
+      if(serialCommand=="TEST_WIFI_DROP"){Serial.println("[WIFI] Test disconnect; automatic reconnect remains enabled");WiFi.disconnect(false,false);wifiRetryAt=millis();}
+      if(serialCommand=="CLOCK_PHASE_0"||serialCommand=="CLOCK_PHASE_1"){
+        Preferences timing;timing.begin("cbtiming",false);timing.putBool("phase",serialCommand.endsWith("1"));timing.end();Serial.println("[PANEL] Clock phase saved; restarting");delay(100);ESP.restart();
+      }
       if(serialCommand=="TEST_TLS_FILE"){
         String path=String("/media")+animationPath(animationSlot);
         FILE *f=fopen(path.c_str(),"rb");int fd=f?fileno(f):-1,first=f?fgetc(f):-1;
@@ -288,6 +296,6 @@ void loop() {
       serialCommand="";
     } else if(serialCommand.length()<64) serialCommand+=c;
   }
-  if(now-frameAt>=(streamActive()?50UL:(animationPlaying?1000UL/animationFps:uint32_t(settings.interval)))) {frameAt=now;drawFrame();}
+  if(now-frameAt>=(streamActive()?33UL:(animationPlaying?1000UL/animationFps:uint32_t(settings.interval)))) {frameAt=now;drawFrame();}
   delay(2);
 }

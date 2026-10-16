@@ -37,7 +37,7 @@ test('GIF disposal clears a previous patch before the next frame', () => {
   const bytes=new Uint8Array(1000), writer=new GifWriter(bytes,2,1,{palette:[0,0xff0000,0x00ff00,0xffffff]});
   writer.addFrame(0,0,2,1,[1,1],{delay:25,disposal:2});
   writer.addFrame(1,0,1,1,[2],{delay:25});
-  const clip=decodeGif(bytes.slice(0,writer.end()),'test',1);
+  const clip=decodeGif(bytes.slice(0,writer.end()),'test',1,8);
   assert.equal(clip.frames.length,4); assert.equal(clip.frames[0][0],224);
   assert.equal(clip.frames[2][0],0); assert.equal(clip.frames[2][63],28);
 });

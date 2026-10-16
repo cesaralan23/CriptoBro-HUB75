@@ -91,10 +91,10 @@ export async function importMedia(
       if (!Number.isFinite(duration) || duration <= 0)
         throw new Error("No se pudo leer este video. Probá un MP4 con H.264.");
       const frames: Uint8Array[] = [],
-        count = Math.max(1, Math.floor(duration * 8));
+        count = Math.max(1, Math.floor(duration * 30));
       for (let i = 0; i < count; i++) {
         progress(`Convirtiendo cuadro ${i + 1} de ${count}…`);
-        const [thumbnail] = await player.generateThumbnailsAsync(i / 8, {
+        const [thumbnail] = await player.generateThumbnailsAsync(i / 30, {
           maxWidth: 64,
           maxHeight: 32,
         });
@@ -121,7 +121,7 @@ export async function importMedia(
           context.release();
         }
       }
-      return fitClip(name, frames, 8);
+      return fitClip(name, frames, 30);
     } finally {
       player.release();
     }

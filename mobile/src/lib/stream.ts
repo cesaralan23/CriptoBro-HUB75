@@ -1,17 +1,75 @@
 import { fromByteArray } from 'base64-js';
-import { request } from './api';
+import { ApiError, request } from './api';
+import { FrameChannel, openFrameChannel } from './streamSocket';
 import { QueueItem } from './playlist';
 
-// Only one request in flight. Drop late frames instead of building a latency queue.
 export async function streamQueue(address: string, token: string, items: QueueItem[],
+  cancelled: () => boolean, progress: (text: string) => void,
+  call: typeof request = request,
+  wait = (ms: number) => new Promise<void>(r => setTimeout(r, ms)),
+  now = Date.now, connect = openFrameChannel) {
+  if (!items.length || items.some(x => !x.clip.frames.length || x.seconds < 1 || x.seconds > 300 || !Number.isInteger(x.seconds)))
+    throw new Error('Elegí una cola con duraciones de 1 a 300 segundos.');
+  let channel: FrameChannel | undefined, session = '', deviceId = '', retries = 0;
+  async function reconnect() {
+    while (!cancelled()) {
+      try {
+        const info = await call<{streamApi?: number; streamWsApi?: number; id?: string}>(address, 'info');
+        if (info.streamApi === 1 && !info.streamWsApi) return false;
+        if (info.streamWsApi !== 1) throw new ApiError(422, 'Actualizá el firmware del cartel para transmitir.');
+        if (deviceId && info.id !== deviceId) throw new ApiError(422, 'La IP ahora pertenece a otro cartel. Volvé a buscar tu pantalla.');
+        deviceId = info.id || '';
+        const start = await call<{session: string; wsPort: number}>(address, 'stream/start', token, {});
+        session = start.session;
+        channel = await connect(address, start.wsPort, session);
+        retries = 0; return true;
+      } catch (error) {
+        channel?.close(); channel = undefined;
+        if (error instanceof ApiError && [401,403,422].includes(error.status)) throw error;
+        progress(`Reconectando al cartel… intento ${++retries}. Podés detener la transmisión.`);
+        // Cancellable backoff; the screen uses its saved content while disconnected.
+        for (let n = 0; n < Math.min(retries * 10, 30) && !cancelled(); n++) await wait(100);
+      }
+    }
+    return true;
+  }
+  try {
+    if (!await reconnect()) return await legacyStreamQueue(address, token, items, cancelled, progress, call, wait, now);
+    while (!cancelled()) for (const item of items) {
+      let start = now(), reportAt = start, sent = 0;
+      progress(`EN VIVO · ${item.clip.name} · hasta ${Math.min(30,item.clip.fps)} fps`);
+      while (!cancelled() && now() - start < item.seconds * 1000) {
+        const tick = now();
+        const frame = item.clip.frames[Math.floor((tick - start) * item.clip.fps / 1000) % item.clip.frames.length];
+        try {
+          await channel!.send(frame); sent++;
+        } catch {
+          channel?.close(); channel = undefined;
+          progress('Se cortó el Wi-Fi. Reconectando automáticamente…');
+          await reconnect(); start = now(); reportAt = start; sent = 0; continue;
+        }
+        if (now() - reportAt >= 1000) {
+          progress(`EN VIVO · ${item.clip.name} · ${(sent * 1000 / (now()-reportAt)).toFixed(1)} fps`);
+          reportAt = now(); sent = 0;
+        }
+        await wait(Math.max(0, 1000 / Math.min(30,item.clip.fps) - (now()-tick)));
+      }
+      if (cancelled()) break;
+    }
+  } finally {
+    channel?.close();
+    if (session) await call(address, 'stream/stop', token, {session}).catch(() => undefined);
+  }
+}
+
+// Only one request in flight. Drop late frames instead of building a latency queue.
+async function legacyStreamQueue(address: string, token: string, items: QueueItem[],
   cancelled: () => boolean, progress: (text: string) => void,
   call: typeof request = request,
   wait = (ms: number) => new Promise<void>(r => setTimeout(r, ms)),
   now = Date.now) {
   if (!items.length || items.some(x => !x.clip.frames.length || x.seconds < 1 || x.seconds > 300 || !Number.isInteger(x.seconds)))
     throw new Error('Elegí una cola con duraciones de 1 a 300 segundos.');
-  const info = await call<{streamApi?: number}>(address, 'info');
-  if (info.streamApi !== 1) throw new Error('Streaming requiere firmware 1.4.0. Esperá la actualización del cartel.');
   const {session} = await call<{session: string}>(address, 'stream/start', token, {});
   let seq = 0;
   try {

@@ -18,10 +18,11 @@ export function encode(frames: Uint8Array[], fps: number): Uint8Array {
   return Uint8Array.from(out);
 }
 export function fitClip(name: string, frames: Uint8Array[], fps: number): Clip {
-  for (let rate = fps; rate >= 1; rate--) {
+  if (!Number.isInteger(fps) || fps < 1 || fps > 30 || !frames.length || frames.length > fps * 30 || frames.some(f => f.length !== 2048)) throw new Error('Clip inválido: máximo 30 fps y 30 segundos');
+  for (let rate = Math.min(10, fps, Math.floor(255 * fps / frames.length)); rate >= 1; rate--) {
     const selected = Array.from({length: Math.max(1, Math.floor(frames.length * rate / fps))}, (_, i) => frames[Math.floor(i * fps / rate)]);
     const bytes = encode(selected, rate);
-    if (bytes.length <= MAX_BYTES) return {name, frames: selected, fps: rate, bytes};
+    if (bytes.length <= MAX_BYTES) return {name, frames, fps, bytes};
   }
   throw new Error('El clip no entra en la memoria');
 }

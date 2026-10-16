@@ -281,7 +281,7 @@ function Library() {
                       {index + 1}. {item.clip.name}
                     </Label>
                     <Badge>
-                      {(item.clip.bytes.length / 1024).toFixed(1)} KB
+                      {(item.clip.bytes.length / 1024).toFixed(1)} KB · {item.clip.fps} fps en vivo · {item.clip.bytes[4]} fps guardado
                     </Badge>
                   </View>
                   <ClipPreview clip={item.clip} playing={false} />
