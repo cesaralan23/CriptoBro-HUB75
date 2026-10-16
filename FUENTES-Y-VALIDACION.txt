@@ -1,5 +1,5 @@
 CriptoBro: fuentes, decisiones y estado de validación
-Revisión: 16/10/2026. Firmware candidato 1.4.7.
+Revisión: 16/10/2026. Firmware 1.4.7 instalado y probado en la placa.
 
 SOLUCIONES EXISTENTES UTILIZADAS
 
@@ -29,7 +29,8 @@ La interfaz, emparejamiento, cotizaciones, cola, formatos CBA1/CBQ1 y envío
 HTTP de cuadros RGB332 son código del proyecto. Los límites de 300 KiB,
 32 elementos, 10 fps máximos y timeout de 3 segundos son decisiones propias,
 no especificaciones del fabricante. 10 fps es un techo, no rendimiento medido.
-La prueba Wi-Fi realizada dio aproximadamente 2.5 fps con el cliente Python.
+La prueba inicial dio aproximadamente 2.5 fps con el cliente Python; la prueba
+de 20 cuadros con 1.4.7 dio 7.4 fps. Son mediciones, no velocidad garantizada.
 El streaming requiere teléfono activo en la misma red y no guarda los cuadros
 en flash. No equivale a un reproductor general de video ni transmite audio.
 
@@ -66,11 +67,30 @@ la migración, partición de medios de 917504 bytes y recuperación del archivo
 original de 14544 bytes, CRC32 f915ea67. Prueba previa de streaming y retorno
 por inactividad completada. APK Android 1.3.0 y EAS Update preparados.
 
-Pendiente: instalar y validar 1.4.7 en la placa, ejecutar TEST_TLS_FILE,
-completar dos cargas consecutivas de 305471 bytes mientras funcionan las
-cotizaciones, restaurar el contenido original y verificar tras reiniciar.
-Compilar correctamente no equivale a superar estas pruebas.
+Validación real de 1.4.7 completada:
+- Instalación OTA con SHA256 verificado y arranque confirmado por serie/API.
+- TEST_TLS_FILE: PASS, fd=3. Comprueba que el archivo de esa prueba permanece
+  abierto; no reproduce por sí solo el caso específico de descriptor cero.
+- Dos cargas consecutivas de 305471 bytes (21 clips cada una), mientras el
+  proceso de cotizaciones siguió activo. Sin assert ni reinicios en el registro.
+- Reenvío de bloques y reanudación desde el offset confirmado después de una
+  pausa. Hubo un timeout de 5 segundos al finalizar cada carga grande; el
+  reintento idempotente terminó correctamente. No se cortó el router físicamente.
+- Restauración del GIF original y sus ajustes. Carga adicional durante
+  reproducción continua y rechazo de transferencia incompleta sin perderlo.
+- Streaming: 20 cuadros confirmados en 2.703 segundos; segunda sesión rechazada
+  mientras había una activa; liberación tras 3 segundos sin cuadros.
+- Reinicio: Wi-Fi, vinculación, firmware 1.4.7, GIF y configuración conservados.
+- App: typecheck, lint y 17 tests aprobados.
+
+Estos resultados validan los escenarios ensayados, no garantizan inmunidad a
+cualquier corte o fallo eléctrico. Los registros y JSON de comprobación quedan
+en el respaldo privado indicado abajo. No se ha observado la pantalla desde
+el teléfono del usuario durante estas pruebas; la comprobación es de API/serie.
 
 Los respaldos, credenciales y registros privados están fuera del repositorio,
 en work/backups/B0A732378074-20261016. No publicar tokens ni la imagen de NVS.
 Actualizar este estado con el resultado real, incluyendo los fallos.
+
+Prueba adicional tras reiniciar: 120 cuadros confirmados en 19.16 segundos
+(6.3 fps), timeout de streaming y contenido/configuración conservados.

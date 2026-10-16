@@ -52,7 +52,7 @@ npx expo export --platform android
 Fuentes: compact_font.h del proyecto y glcdfont.c de Adafruit GFX (fuente original
 de dominio publico). fonts.json contiene los mapas de pixeles para la vista previa.
 
-MEMES, COLAS Y STREAMING (firmware 1.4.2 / Android 1.3.0)
+MEMES, COLAS Y STREAMING (firmware 1.4.7 / Android 1.3.0)
 Biblioteca: elegir archivos o plantillas, revisar la conversion a 64x32 y
 armar una cola de hasta 32 elementos. Cada elemento se expone 1..300 segundos.
 Origen maximo 20 MB; fragmentos de hasta 30 segundos; RGB332 sin audio.

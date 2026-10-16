@@ -1,4 +1,4 @@
-CriptoBro firmware 1.4.2 / Android 1.3.0
+CriptoBro firmware 1.4.7 / Android 1.3.0
 
 STREAMING
 Biblioteca > preparar cola > Transmitir cola por Wi-Fi.
@@ -15,7 +15,9 @@ La cola completa en el teléfono puede superar el espacio disponible del cartel.
 ALMACENAMIENTO
 El firmware OTA mantiene las particiones instaladas y los archivos anteriores.
 Distribución original: SPIFFS 128 KiB, cola máxima 40 KiB.
-Distribución opcional partitions-media.csv: SPIFFS 896 KiB, cola máxima 300 KiB.
+Distribución opcional partitions-media.csv: medios 896 KiB, cola máxima 300 KiB.
+El equipo migrado usa LittleFS. El firmware también lee SPIFFS en equipos
+anteriores; una actualización OTA no formatea ni cambia ese sistema.
 Dos slots de archivos conservan la cola anterior hasta validar CRC y formato.
 Dos slots de firmware de 1536 KiB conservan OTA. Nunca publicar un binario
 mayor que 1536 KiB para equipos migrados. El actual cabe en ambos layouts.
@@ -25,7 +27,10 @@ MIGRACION USB APLICADA EL 16/10/2026
 Equipo B0A732378074, flash física 4 MB, COM8. Respaldo completo verificado
 antes de escribir. NVS se conservó byte por byte; el archivo original se
 recuperó con hash idéntico. Wi-Fi y vinculación conservados. Capacidad
-informada por el cartel: 836081 bytes de filesystem, maxBytes=307200.
+informada por el cartel: 917504 bytes LittleFS, maxBytes=307200.
+Las pruebas detectaron fallos de escritura/lectura con SPIFFS. Se migró a
+LittleFS mediante mantenimiento por USB, conservando en RAM el archivo activo
+y verificando los 14544 bytes con CRC32 f915ea67 después de restaurarlo.
 Una actualización OTA posterior arrancó correctamente con la nueva tabla.
 Respaldo privado: work/backups/B0A732378074-20261016 (fuera del repositorio).
 No ejecutar pio upload de esp32media a ciegas: cambia offsets y necesita
@@ -42,6 +47,10 @@ Procedimiento técnico usado (referencia para otros equipos):
    imagen SPIFFS nueva. Verificar escrituras y arranque. Conservar el respaldo
    completo para recuperación. No usar erase_flash ni autoformatear archivos.
 5. Confirmar Wi-Fi, vinculación, maxBytes=307200 y reproducción de cola previa.
+6. Con respaldo externo verificado, firmware 1.4.7 admite por serial el comando
+   MIGRATE_MEDIA_<ID>. Convierte SPIFFS a LittleFS conservando sólo el archivo
+   activo (máximo 64 KiB para la copia en RAM). No usar sin respaldo: un corte
+   durante el formato requiere restauración. No se ejecuta automáticamente.
 
 EAS UPDATE
 La APK Android 1.3.0 (versionCode 4) contiene expo-updates.
