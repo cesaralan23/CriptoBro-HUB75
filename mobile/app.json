@@ -4,17 +4,15 @@
     "slug": "criptobro-local",
     "version": "1.1.0",
     "orientation": "portrait",
-    "icon": "./assets/icon.png",
+    "icon": "./assets/studio-icon.png",
     "userInterfaceStyle": "dark",
     "ios": {
       "supportsTablet": true
     },
     "android": {
       "adaptiveIcon": {
-        "backgroundColor": "#E6F4FE",
-        "foregroundImage": "./assets/android-icon-foreground.png",
-        "backgroundImage": "./assets/android-icon-background.png",
-        "monochromeImage": "./assets/android-icon-monochrome.png"
+        "foregroundImage": "./assets/studio-foreground.png",
+        "backgroundColor": "#0C0D14"
       },
       "predictiveBackGestureEnabled": false,
       "package": "com.cesaralan23.criptobro",
@@ -27,7 +25,7 @@
       "versionCode": 2
     },
     "web": {
-      "favicon": "./assets/favicon.png"
+      "favicon": "./assets/studio-icon.png"
     },
     "plugins": [
       "expo-router",
