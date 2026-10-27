@@ -88,7 +88,7 @@ Reimportar GIF originales para aprovechar los cuadros que antes se descartaban.
 El cliente de streaming vuelve a resolver el ID antes de abrir cada sesión,
 actualiza la dirección guardada y sólo autentica al mismo cartel. Tras un corte
 reinicia el elemento interrumpido, manteniendo la app abierta en la misma red.
-Pruebas: cambio de IP simulado en pleno stream y rechazo de otro ID; 30 tests
+Pruebas: cambio de IP simulado en pleno stream y rechazo de otro ID; 31 tests
 móviles aprobados, TypeScript y lint sin errores.
 Firmware: una consulta fallida marca retrying, no stale. La cotización reciente
 se conserva con REINTENTO. DATO VIEJO sigue apareciendo al superar los límites
@@ -97,3 +97,10 @@ del timestamp del proveedor). Nueve casos de límites compilados con static_asse
 en tools/test_quote_freshness.cpp. Fuentes de datos sin cambios.
 Cola: Quitar edita el borrador local; Guardar cola y reproducir reemplaza la cola
 del cartel. Reproductor activo permite desactivar las imágenes sin borrarlas.
+
+Entrega verificada: firmware 1.5.2 instalado por OTA y consultado en la placa;
+vinculación y configuración de la cola de tres elementos conservadas. BTC,
+SOL y MSTR válidos; API con retrying y stale separados. Prueba de 120 cuadros
+con cierre de socket y recuperación de sesión completada, sin reemplazar la
+cola. El cambio de IP en pleno streaming se validó por prueba automatizada;
+no se alteró la concesión DHCP del router ni se probó en el Android del usuario.
