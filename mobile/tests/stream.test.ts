@@ -135,3 +135,21 @@ test('rediscovery never sends credentials to a different device',async()=>{
   undefined,undefined,undefined,{id:'B0A732378074',locate:async()=>({id:'AAAAAAAAAAAA',address:'192.168.1.69:8080'})}),/otro identificador/);
  assert.equal(authenticated,0);
 });
+
+test('cancelled rediscovery does not send cleanup credentials to the obsolete IP',async()=>{
+ let stop=false,lookups=0,stops=0;
+ const call=(async(_a:string,p:string)=>{
+  if(p==='info')return {id:'B0A732378074',streamApi:1,streamWsApi:1};
+  if(p==='stream/start')return {session:'old',wsPort:8081};
+  if(p==='stream/stop')stops++;
+  return {};
+ }) as typeof request;
+ await streamQueue('192.168.1.96:8080','secret',
+  [{id:'a',clip:fitClip('test',[new Uint8Array(2048)],8),seconds:1}],()=>stop,()=>{},call,
+  async()=>{},Date.now,async()=>({close(){},async send(){throw Error('lost');}}),
+  {id:'B0A732378074',locate:async id=>{
+   if(++lookups===1)return {id,address:'192.168.1.96:8080'};
+   stop=true;throw Error('not found');
+  }});
+ assert.equal(stops,0);
+});

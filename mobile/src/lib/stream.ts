@@ -18,10 +18,10 @@ export async function streamQueue(address: string, token: string, items: QueueIt
     while (!cancelled()) {
       try {
         if (recovery) {
+          session = ''; // The old address may now belong to another device.
           const found = await recovery.locate(deviceId, address);
           if (found.id !== deviceId) throw new ApiError(422, 'La pantalla encontrada tiene otro identificador.');
           address = found.address;
-          session = ''; // Never send an old session to a new address during cleanup.
           if (cancelled()) return true;
         }
         const info = await call<{streamApi?: number; streamWsApi?: number; id?: string}>(address, 'info');
