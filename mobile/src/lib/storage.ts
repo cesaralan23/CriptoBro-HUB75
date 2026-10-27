@@ -1,5 +1,6 @@
 import * as SecureStore from "expo-secure-store";
 import { Platform } from "react-native";
+import { SerialQueue } from "./api";
 import { Device } from "./model";
 const memory = new Map<string, string>();
 async function get(key: string) {
@@ -18,13 +19,20 @@ export async function savedDevices(): Promise<Device[]> {
     return [];
   }
 }
-export async function remember(d: Device, token: string) {
-  const devices = await savedDevices();
-  await set(`cb.token.${d.id}`, token);
-  await set(
-    "cb.devices",
-    JSON.stringify([d, ...devices.filter((v) => v.id !== d.id)].slice(0, 8)),
-  );
+const writes = new SerialQueue();
+export function remember(d: Device, token: string) {
+  return writes.run(async () => {
+    const devices = await savedDevices();
+    await set(`cb.token.${d.id}`, token);
+    await set("cb.devices", JSON.stringify([d, ...devices.filter(v => v.id !== d.id)].slice(0, 8)));
+  });
+}
+// Address refresh never replaces or clears the pairing token.
+export function rememberAddress(d: Device) {
+  return writes.run(async () => {
+    const devices = await savedDevices();
+    await set("cb.devices", JSON.stringify(devices.map(v => v.id === d.id ? d : v)));
+  });
 }
 export async function tokenFor(id: string) {
   return (await get(`cb.token.${id}`)) ?? "";

@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, useCallback } from "react";
-import { ScrollView, Text, View } from "react-native";
+import { AppState, ScrollView, Text, View } from "react-native";
 import { router, useFocusEffect } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Hero, Badge, ActionTile, Icon } from "../components/studio";
@@ -7,9 +7,9 @@ import Matrix from "../components/Matrix";
 import { Button, Card, Input, Label, styles } from "../components/ui";
 import { Device, State, defaults, demoQuotes } from "../lib/model";
 import { getDevice, request, ApiError } from "../lib/api";
-import { remember, savedDevices, tokenFor } from "../lib/storage";
+import { remember, rememberAddress, savedDevices, tokenFor } from "../lib/storage";
 import { useSession } from "../lib/session";
-import { canDiscover, discover } from "../lib/discovery";
+import { canDiscover, discover, resolveDevice } from "../lib/discovery";
 export default function Home() {
   const session = useSession();
   const [address, setAddress] = useState(""),
@@ -21,38 +21,45 @@ export default function Home() {
     [scanning, setScanning] = useState(false);
   const [health, setHealth] = useState<Record<string, string>>({});
   const [manual, setManual] = useState(false);
-  useFocusEffect(
-    useCallback(() => {
-      let active = true;
-      savedDevices().then((ds) => {
-        if (active) setDevices(ds);
-      });
-      return () => {
-        active = false;
-      };
-    }, []),
-  );
+  const checking = useRef(false);
+  const refreshSaved = useCallback(async (alive: () => boolean = () => true) => {
+    if (checking.current) return;
+    checking.current = true;
+    try {
+      const saved = await savedDevices();
+      if (alive()) {
+        setDevices(saved);
+        setHealth(Object.fromEntries(saved.map(d => [d.id, "Buscando…"])));
+      }
+      await Promise.all(saved.map(async d => {
+        try {
+          const fresh = await resolveDevice(d);
+          await rememberAddress(fresh);
+          if (alive()) {
+            setDevices(old => old.map(v => v.id === fresh.id ? fresh : v));
+            setHealth(h => ({ ...h, [d.id]: "Disponible" }));
+          }
+        } catch {
+          if (alive()) setHealth(h => ({ ...h, [d.id]: "Sin conexión · mismo Wi-Fi requerido" }));
+        }
+      }));
+    } finally { checking.current = false; }
+  }, []);
+  useFocusEffect(useCallback(() => {
+    let active = true;
+    const refresh = () => { if (AppState.currentState === "active") void refreshSaved(() => active); };
+    refresh();
+    const subscription = AppState.addEventListener("change", state => { if (state === "active") refresh(); });
+    const timer = setInterval(refresh, 30000);
+    return () => { active = false; clearInterval(timer); subscription.remove(); };
+  }, [refreshSaved]));
   async function checkDevices() {
     setBusy(true);
-    await Promise.all(
-      devices.map(async (d) => {
-        try {
-          const fresh = await getDevice(d.address);
-          setHealth((h) => ({
-            ...h,
-            [d.id]: fresh.id === d.id ? "Disponible" : "La IP cambió",
-          }));
-        } catch {
-          setHealth((h) => ({ ...h, [d.id]: "Sin respuesta" }));
-        }
-      }),
-    );
-    setBusy(false);
+    try { await refreshSaved(); } finally { setBusy(false); }
   }
   const stop = useRef<() => void>(() => {}),
     scanTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(() => {
-    savedDevices().then(setDevices);
     return () => {
       stop.current();
       if (scanTimer.current) clearTimeout(scanTimer.current);
@@ -72,14 +79,16 @@ export default function Home() {
     }
   }
   async function connect(d: Device) {
-    const fresh = await getDevice(d.address);
-    if (fresh.id !== d.id)
-      throw new Error("La IP pertenece a otro cartel. Volvé a buscarlo.");
+    setNotice("Localizando tu pantalla…");
+    const fresh = await resolveDevice(d);
+    await rememberAddress(fresh);
+    setNotice("");
     const token = await tokenFor(d.id);
     add(fresh);
+    setHealth(h => ({ ...h, [fresh.id]: "Disponible" }));
     if (token) {
       try {
-        const state = await request<State>(d.address, "state", token);
+        const state = await request<State>(fresh.address, "state", token);
         session.open(fresh, token, state.settings, state.quotes);
         router.navigate("/editor");
         return;
@@ -140,7 +149,8 @@ export default function Home() {
             title={
               session.device ? "Continuar diseñando" : "Explorar el estudio"
             }
-            onPress={() => router.navigate("/editor")}
+            disabled={busy}
+            onPress={() => session.device ? run(() => connect(session.device!)) : router.navigate("/editor")}
           />
         </Card>
         <View style={styles.row}>

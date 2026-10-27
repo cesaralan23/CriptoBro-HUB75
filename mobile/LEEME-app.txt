@@ -66,3 +66,16 @@ repite la cola multimedia; la alternancia con cotizaciones usa la cola guardada.
 Instalar una vez la APK 1.3.0 habilita EAS Update. Cambios compatibles llegan
 al abrir la app y se aplican en el siguiente inicio; Ayuda permite buscarlos.
 Cambios nativos o de SDK siguen necesitando una nueva APK.
+
+2026-10-27 - Recuperación de dirección local
+La pantalla de inicio comprueba automáticamente los carteles guardados al entrar,
+al volver del segundo plano y cada 30 segundos mientras permanece visible.
+Si la dirección guardada no responde o pertenece a otro ID, busca por mDNS y
+verifica /api/info antes de usar la clave. Guarda la dirección nueva sin cambiar
+la vinculación. Abrir pantalla y Continuar diseñando también resuelven el ID.
+Varias búsquedas comparten un único explorador mDNS; timeout de búsqueda 12 s
+más la comprobación inicial de hasta 5 s. Requiere la misma red con multicast.
+No agrega módulos nativos: compatible con el runtime de la APK 1.3.0.
+Validación: 28 tests, TypeScript y lint aprobados. El resolver real en Node,
+con un puente mDNS Python, recuperó B0A732378074 desde 192.168.1.96:8080 a
+192.168.1.69:8080. La prueba Android en el teléfono del usuario queda pendiente.
