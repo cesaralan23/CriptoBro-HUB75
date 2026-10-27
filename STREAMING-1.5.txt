@@ -83,3 +83,17 @@ publicado en preview, grupo e04e03db-6ca8-44c4-bbb6-d48e5f2c1d0b,
 runtime 754f0c6f5b841ffc29d97e9834fe3618cdcb5181 (APK 1.3.0).
 Ayuda > Buscar actualización; cerrar completamente y volver a abrir.
 Reimportar GIF originales para aprovechar los cuadros que antes se descartaban.
+
+2026-10-27 - Recuperación durante streaming y cotizaciones 1.5.2
+El cliente de streaming vuelve a resolver el ID antes de abrir cada sesión,
+actualiza la dirección guardada y sólo autentica al mismo cartel. Tras un corte
+reinicia el elemento interrumpido, manteniendo la app abierta en la misma red.
+Pruebas: cambio de IP simulado en pleno stream y rechazo de otro ID; 30 tests
+móviles aprobados, TypeScript y lint sin errores.
+Firmware: una consulta fallida marca retrying, no stale. La cotización reciente
+se conserva con REINTENTO. DATO VIEJO sigue apareciendo al superar los límites
+de edad (60 s cripto / 180 s acción desde la recepción, con validación adicional
+del timestamp del proveedor). Nueve casos de límites compilados con static_assert
+en tools/test_quote_freshness.cpp. Fuentes de datos sin cambios.
+Cola: Quitar edita el borrador local; Guardar cola y reproducir reemplaza la cola
+del cartel. Reproductor activo permite desactivar las imágenes sin borrarlas.

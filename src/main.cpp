@@ -13,6 +13,7 @@
 #include "cloud_ota.h"
 #include "compact_font.h"
 #include "display_settings.h"
+#include "quote_freshness.h"
 
 MatrixPanel_I2S_DMA *panel;
 WiFiManager portal;
@@ -216,14 +217,14 @@ void drawFrame() {
   } else {
     char top[64],bottom[64];
     snprintf(top,sizeof(top),"%s %s %s",names[active],priceText,active==2?"USD":"USDT");
-    bool stale=shown.valid&&(millis()-shown.received>(active==2?180000:60000));
+    bool stale=quoteIsStale(shown.valid,shown.closed,active,millis()-shown.received,int64_t(time(nullptr))-shown.timestamp);
     const char *state=nullptr;
     if(WiFi.status()!=WL_CONNECTED) state="SIN WIFI";
     else if(time(nullptr)<1700000000) state="RELOJ...";
-    else if(stale || shown.failed) state="DATO VIEJO";
+    else if(stale) state="DATO VIEJO";
     else if(!shown.valid) state="CARGANDO";
     if(state) snprintf(bottom,sizeof(bottom),"%s",state);
-    else snprintf(bottom,sizeof(bottom),"%+.2f%% %s%s",shown.change,active<2?"24H":"DIA",active==2&&shown.closed?" CER":"");
+    else snprintf(bottom,sizeof(bottom),"%+.2f%% %s%s",shown.change,active<2?"24H":"DIA",shown.failed?" REINTENTO":active==2&&shown.closed?" CER":"");
     if(settings.mode=="text"){snprintf(top,sizeof(top),"%s",settings.message.c_str());bottom[0]=0;}
     int offset=settings.showLogo?settings.textX:0;
     quoteText(scrollX+offset,settings.top,settings.mode=="text"?settings.message.c_str():top,configuredColor(settings.priceColor));

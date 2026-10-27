@@ -11,6 +11,8 @@ import { useSession } from "../lib/session";
 import { packQueue, QueueItem } from "../lib/playlist";
 import { retryTransfer, uploadQueue } from "../lib/upload";
 import { loadDraft, saveDraft } from "../lib/queueStorage";
+import { resolveDevice } from "../lib/discovery";
+import { rememberAddress } from "../lib/storage";
 import { streamQueue } from "../lib/stream";
 import { useKeepAwake } from "expo-keep-awake";
 function KeepStreamingAwake(){useKeepAwake();return null;}
@@ -496,7 +498,12 @@ function Library() {
           onPress={() => void action(async () => {
             if(!device)return;
             setStreaming(true);
-            try {await streamQueue(device.address, token, items, () => cancel.current, setMessage);
+            try {await streamQueue(device.address, token, items, () => cancel.current, setMessage,
+              undefined, undefined, undefined, undefined, { id: device.id, locate: async (id, address) => {
+                const found = await resolveDevice({ ...device, id, address });
+                await rememberAddress(found);
+                return found;
+              } });
               setMessage("Transmisión detenida. El cartel vuelve a su contenido guardado.");
             } finally {setStreaming(false);}
           })} />

@@ -107,3 +107,31 @@ test('WebSocket bounds outstanding frames to three and clears all on disconnect'
   await assert.rejects(channel.send(frame),/ventana llena/);
   channel.close();assert.ok((await settled).every(r=>r.status==='rejected'));
 });
+
+test('stream follows device identity to a new IP after socket loss', async () => {
+ let time=0, connections=0, frames=0, located=0;
+ const old='192.168.1.96:8080', fresh='192.168.1.69:8080';
+ const authenticated:string[]=[];
+ const call=(async(a:string,p:string,t?:string)=>{
+  if(t)authenticated.push(a);
+  if(p==='info')return {id:'B0A732378074',streamApi:1,streamWsApi:1};
+  if(p==='stream/start')return {session:'session',wsPort:8081};
+  return {};
+ }) as typeof request;
+ await streamQueue(old,'secret',[{id:'a',clip:fitClip('test',[new Uint8Array(2048)],8),seconds:1}],()=>frames>=4,()=>{},call,
+  async ms=>{time+=ms;},()=>time,async address=>{
+   connections++;assert.equal(address,connections===1?old:fresh);
+   const first=connections===1;
+   return {close(){},async send(){if(first)throw Error('connection lost');frames++;}};
+  },{id:'B0A732378074',locate:async id=>({id,address:++located===1?old:fresh})});
+ assert.equal(connections,2);assert.ok(authenticated.includes(fresh));
+ assert.equal(authenticated[authenticated.length-1],fresh);
+});
+test('rediscovery never sends credentials to a different device',async()=>{
+ let authenticated=0;
+ const call=(async(_a:string,_p:string,t?:string)=>{if(t)authenticated++;return {};}) as typeof request;
+ await assert.rejects(streamQueue('192.168.1.96:8080','secret',
+  [{id:'a',clip:fitClip('test',[new Uint8Array(2048)],8),seconds:1}],()=>false,()=>{},call,
+  undefined,undefined,undefined,{id:'B0A732378074',locate:async()=>({id:'AAAAAAAAAAAA',address:'192.168.1.69:8080'})}),/otro identificador/);
+ assert.equal(authenticated,0);
+});

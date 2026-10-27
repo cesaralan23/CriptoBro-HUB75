@@ -7,15 +7,23 @@ export async function streamQueue(address: string, token: string, items: QueueIt
   cancelled: () => boolean, progress: (text: string) => void,
   call: typeof request = request,
   wait = (ms: number) => new Promise<void>(r => setTimeout(r, ms)),
-  now = Date.now, connect = openFrameChannel) {
+  now = Date.now, connect = openFrameChannel,
+  recovery?: { id: string; locate: (id: string, address: string) => Promise<{id: string; address: string}> }) {
   if (!items.length || items.some(x => !x.clip.frames.length || x.seconds < 1 || x.seconds > 300 || !Number.isInteger(x.seconds)))
     throw new Error('Elegí una cola con duraciones de 1 a 300 segundos.');
-  let channel: FrameChannel | undefined, session = '', deviceId = '', retries = 0;
+  let channel: FrameChannel | undefined, session = '', deviceId = recovery?.id || '', retries = 0;
   const pending = new Set<Promise<void>>();
   let frameError: unknown;
   async function reconnect() {
     while (!cancelled()) {
       try {
+        if (recovery) {
+          const found = await recovery.locate(deviceId, address);
+          if (found.id !== deviceId) throw new ApiError(422, 'La pantalla encontrada tiene otro identificador.');
+          address = found.address;
+          session = ''; // Never send an old session to a new address during cleanup.
+          if (cancelled()) return true;
+        }
         const info = await call<{streamApi?: number; streamWsApi?: number; id?: string}>(address, 'info');
         if (info.streamApi === 1 && !info.streamWsApi) return false;
         if (info.streamWsApi !== 1) throw new ApiError(422, 'Actualizá el firmware del cartel para transmitir.');

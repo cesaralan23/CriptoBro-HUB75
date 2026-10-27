@@ -27,7 +27,7 @@ void sendState(){
   DynamicJsonDocument d(3072);encodeSettings(d.createNestedObject("settings"),settings);
   JsonArray a=d.createNestedArray("quotes");Quote copy[3];
   portENTER_CRITICAL(&quoteLock);for(int i=0;i<3;i++)copy[i]=quotes[i];portEXIT_CRITICAL(&quoteLock);
-  for(int i=0;i<3;i++){JsonObject q=a.createNestedObject();q["symbol"]=names[i];q["price"]=copy[i].price;q["change"]=copy[i].change;q["valid"]=copy[i].valid;q["closed"]=copy[i].closed;q["timestamp"]=int64_t(copy[i].timestamp);q["stale"]=copy[i].failed||(copy[i].valid&&millis()-copy[i].received>(i==2?180000:60000));}
+  for(int i=0;i<3;i++){JsonObject q=a.createNestedObject();q["symbol"]=names[i];q["price"]=copy[i].price;q["change"]=copy[i].change;q["valid"]=copy[i].valid;q["closed"]=copy[i].closed;q["timestamp"]=int64_t(copy[i].timestamp);q["retrying"]=copy[i].failed;q["stale"]=quoteIsStale(copy[i].valid,copy[i].closed,i,millis()-copy[i].received,int64_t(time(nullptr))-copy[i].timestamp);}
   d["id"]=deviceId;d["version"]=FIRMWARE_VERSION;animationState(d.createNestedObject("animation"));jsonReply(200,d);
 }
 void setupControl(){
